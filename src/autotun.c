@@ -4,27 +4,10 @@
 
 #include "autotun.h"
 #include "ssh.h"
+#include "port_map.h"
 
 int _debug = 1;
 char *prog_name = "autotunnel";
-
-
-struct static_port_map {
-	char *gw; /* Redundant but must be same as gw_host->name */
-	uint32_t local_port;
-	char *remote_host;
-	uint32_t remote_port;
-	ssh_channel channel;
-	int socket_fd;
-};
-
-struct gw_host {
-	char *name;
-	ssh_session session;
-	int status;
-	int n_maps;
-	struct static_port_map **pm;
-};
 
 
 struct gw_host *create_gw(char *hostname)
@@ -42,7 +25,7 @@ void connect_gateway(struct gw_host *gw)
 	authenticate_ssh_session(gw->session);
 }
 
-int connect_forward(struct static_port_map *pm)
+/*int connect_forward(struct static_port_map *pm)
 {
 	int rc;
 	rc = ssh_channel_open_forward(pm->channel, pm->remote_host, pm->remote_port,
@@ -55,75 +38,9 @@ int connect_forward(struct static_port_map *pm)
 		return 1;
 	}
 	return 0;
-}
-
-int add_map_to_gw(struct gw_host *gw, uint32_t local_port,
-				   char *host, uint32_t remote_port)
-{
-	struct static_port_map *spm;
-
-	spm = safemalloc(sizeof(struct static_port_map), "static_port_map alloc");
-	spm->gw = gw->name;
-	spm->local_port = local_port;
-	spm->remote_host = safestrdup(host, "spm strdup hostname");
-	spm->remote_port = remote_port;
-
-	if((spm->channel = ssh_channel_new(gw->session)) == NULL)	{
-		log_msg("Error: cannot open new ssh-channel on %s -> %s connection",
-				gw->name, host);
-		return -1;
-	}
-
-	saferealloc((void **)&gw->pm, (gw->n_maps + 1) * sizeof(spm), "gw->pm realloc");
-	gw->pm[gw->n_maps++] = spm;
-
-	return 0;
-}
+}*/
 
 
-
-void free_map(struct static_port_map *pm)
-{
-	if(pm->channel != NULL)	{
-		if(ssh_channel_close(pm->channel) != SSH_OK)
-			log_msg("Error on channel close for %s", pm->gw);
-		ssh_channel_free(pm->channel);
-	}
-
-	free(pm->remote_host);
-	free(pm);
-}
-
-
-/* Return index if *map is in gw->pm[] array, else -1 */
-static int map_in_gw(struct gw_host *gw, struct static_port_map *map)
-{
-	for(int i = 0; i < gw->n_maps; i++)
-		if(map == gw->pm[i])
-			return i;
-	return -1;
-}
-
-int remove_map_from_gw(struct gw_host *gw, struct static_port_map *map)
-{
-	int idx;
-
-	if((idx = map_in_gw(gw, map)) < 0)	{
-		log_msg("Error: map %p not found in gw->pm (%p)", map, gw->pm);
-		return 1;
-	}
-
-	if(gw->n_maps >= 1)	{
-		int i = idx;
-		while(i < gw->n_maps - 1)	{
-			gw->pm[i] = gw->pm[i + 1];
-			i++;
-		}
-		gw->n_maps--;
-		free_map(map);
-	}
-	return 0;
-}
 
 void destroy_gw(struct gw_host *gw)
 {
