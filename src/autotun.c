@@ -15,6 +15,7 @@ struct static_port_map {
 	char *remote_host;
 	uint32_t remote_port;
 	ssh_channel channel;
+	int socket_fd;
 };
 
 struct gw_host {
@@ -31,8 +32,7 @@ struct gw_host *create_gw(char *hostname)
 	struct gw_host *gw = safemalloc(sizeof(struct gw_host), "gw_host struct");
 	gw->name = safestrdup(hostname, "gw_host strdup");
 	gw->n_maps = 0;
-	gw->pm = safemalloc(sizeof(struct static_port_map *), "gw_host pm[0]");
-	//gw->pm = NULL;
+	gw->pm = safemalloc(sizeof(struct static_port_map *), "gw_host pm array");
 	return gw;
 }
 
@@ -40,6 +40,21 @@ void connect_gateway(struct gw_host *gw)
 {
 	connect_ssh_session(&gw->session, gw->name);
 	authenticate_ssh_session(gw->session);
+}
+
+int connect_forward(struct static_port_map *pm)
+{
+	int rc;
+	rc = ssh_channel_open_forward(pm->channel, pm->remote_host, pm->remote_port,
+								  "localhost", pm->local_port);
+	if(rc != SSH_OK)	{
+		log_msg("Error: error opening forward %d -> %s:%d", pm->local_port,
+				pm->remote_host, pm->remote_port);
+		ssh_channel_free(pm->channel);
+		pm->channel = NULL;
+		return 1;
+	}
+	return 0;
 }
 
 int add_map_to_gw(struct gw_host *gw, uint32_t local_port,
@@ -65,11 +80,16 @@ int add_map_to_gw(struct gw_host *gw, uint32_t local_port,
 	return 0;
 }
 
+
+
 void free_map(struct static_port_map *pm)
 {
-	if(ssh_channel_close(pm->channel) != SSH_OK)
-		log_msg("Error on channel close for %s", pm->gw);
-	ssh_channel_free(pm->channel);
+	if(pm->channel != NULL)	{
+		if(ssh_channel_close(pm->channel) != SSH_OK)
+			log_msg("Error on channel close for %s", pm->gw);
+		ssh_channel_free(pm->channel);
+	}
+
 	free(pm->remote_host);
 	free(pm);
 }
@@ -105,6 +125,16 @@ int remove_map_from_gw(struct gw_host *gw, struct static_port_map *map)
 	return 0;
 }
 
+void destroy_gw(struct gw_host *gw)
+{
+	for(int i = 0; i < gw->n_maps; i++)
+		free_map(gw->pm[i]);
+	free(gw->pm);
+	free(gw->name);
+	end_ssh_session(gw->session);
+	free(gw);
+}
+
 /*void print_maps(struct gw_host *gw)
 {
 	for(int i = 0; i < gw->n_maps; i++)	{
@@ -124,5 +154,8 @@ int main(int argc, char *argv[])
 	add_map_to_gw(gw, 8096, "hobbes.domain.local", 22);
 
 
+
+
+	destroy_gw(gw);
 	return 0;
 }

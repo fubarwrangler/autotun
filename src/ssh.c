@@ -4,7 +4,8 @@
 #include "ssh.h"
 #include "autotun.h"
 
-int ssh_verbosity = SSH_LOG_NOLOG;
+int ssh_verbosity = SSH_LOG_RARE;
+//int ssh_verbosity = SSH_LOG_FUNCTIONS;
 
 int connect_ssh_session(ssh_session *session, char *host)
 {
