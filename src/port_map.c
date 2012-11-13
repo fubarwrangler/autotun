@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netdb.h>
@@ -12,8 +13,10 @@
 #include "net.h"
 
 
-int add_map_to_gw(struct gw_host *gw, uint32_t local_port,
-				  char *host, uint32_t remote_port)
+int add_map_to_gw(struct gw_host *gw,
+				  uint32_t local_port,
+				  char *host,
+				  uint32_t remote_port)
 {
 	struct static_port_map *spm;
 
@@ -26,9 +29,7 @@ int add_map_to_gw(struct gw_host *gw, uint32_t local_port,
 	spm->remote_port = remote_port;
 	spm->channels = safemalloc(sizeof(ssh_channel *), "spm->channels[0]");
 
-	spm->socket_fd = create_listen_socket(local_port, "localhost");
-
-
+	spm->listen_fd = create_listen_socket(local_port, "localhost");
 
 	saferealloc((void **)&gw->pm, (gw->n_maps + 1) * sizeof(spm), "gw->pm realloc");
 	gw->pm[gw->n_maps++] = spm;
@@ -36,18 +37,23 @@ int add_map_to_gw(struct gw_host *gw, uint32_t local_port,
 	return 0;
 }
 
-void add_channel_to_map(struct static_port_map *pm, ssh_channel channel)
+void add_channel_to_map(struct static_port_map *pm,
+						ssh_channel channel,
+						int sock_fd)
 {
 	debug("Adding channel %p to map %s:%d", channel, pm->remote_host, pm->remote_port);
 	saferealloc((void **)&pm->channels, (pm->n_channels + 1) * sizeof(channel),
 				"pm->channel realloc");
-	pm->channels[pm->n_channels++] = channel;
+	saferealloc((void **)&pm->chan_socks, (pm->n_channels + 1) * sizeof(channel),
+				"pm->channel realloc");
+	pm->channels[pm->n_channels] = channel;
+	pm->chan_socks[pm->n_channels] = sock_fd;
+	pm->n_channels++;
 }
 
 int remove_channel_from_map(struct static_port_map *pm, ssh_channel ch)
 {
 	int i;
-
 
 	for(i = 0; i < pm->n_channels; i++)	{
 		if(pm->channels[i] == ch)	{
@@ -132,3 +138,6 @@ int remove_map_from_gw(struct gw_host *gw, struct static_port_map *map)
 	}
 	return 0;
 }
+
+
+

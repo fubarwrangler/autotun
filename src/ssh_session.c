@@ -8,7 +8,7 @@
 
 int connect_ssh_session(ssh_session *session, char *host)
 {
-	int ssh_verbosity = (_debug == 0) ? SSH_LOG_NOLOG : SSH_LOG_PROTOCOL;
+	int ssh_verbosity = (_verbose == 0) ? SSH_LOG_NOLOG : SSH_LOG_PROTOCOL;
 	if((*session = ssh_new()) == NULL)
 		log_exit(-1, "ssh_new(): Error creating ssh session");
 
@@ -33,7 +33,7 @@ int connect_ssh_session(ssh_session *session, char *host)
 int authenticate_ssh_session(ssh_session session)
 {
 	/* This will only work if you are running ssh-agent */
-	switch(ssh_userauth_agent(session, NULL))	{
+	switch(ssh_userauth_autopubkey(session, NULL))	{
 		case SSH_AUTH_SUCCESS:
 			return 0;
 		case SSH_AUTH_ERROR:

@@ -17,5 +17,7 @@ void debug(const char *fmt, ...);
 
 extern int _debug;
 extern char *prog_name;
+extern int _verbose;
+
 
 #endif /* _UTIL_H__ */
