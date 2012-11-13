@@ -6,7 +6,7 @@
 #include "ssh.h"
 #include "port_map.h"
 
-int _debug = 1;
+int _debug = 0;
 char *prog_name = "autotunnel";
 
 
@@ -38,6 +38,9 @@ void destroy_gw(struct gw_host *gw)
 
 int main(int argc, char *argv[])
 {
+	if(argc > 1 && !strcmp(argv[1], "-d"))
+		_debug = 1;
+
 	struct gw_host *gw = create_gw("gateway.domain");
 
 	connect_gateway(gw);

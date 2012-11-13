@@ -4,11 +4,11 @@
 #include "ssh.h"
 #include "autotun.h"
 
-int ssh_verbosity = SSH_LOG_RARE;
 //int ssh_verbosity = SSH_LOG_FUNCTIONS;
 
 int connect_ssh_session(ssh_session *session, char *host)
 {
+	int ssh_verbosity = (_debug == 0) ? SSH_LOG_NOLOG : SSH_LOG_PROTOCOL;
 	if((*session = ssh_new()) == NULL)
 		log_exit(-1, "ssh_new(): Error creating ssh session");
 

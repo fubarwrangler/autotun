@@ -82,7 +82,7 @@ int create_listen_socket(uint32_t local_port, const char *node)
 	}
 
 	if (p == NULL)
-		log_exit(2, "Failed to bind any address!");
+		log_exit(2, "Failed to bind an address!");
 
 
 	freeaddrinfo(servinfo);
