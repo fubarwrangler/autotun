@@ -1,15 +1,23 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netdb.h>
 
 
 #include "util.h"
 #include "port_map.h"
 #include "autotun.h"
+#include "net.h"
+
 
 int add_map_to_gw(struct gw_host *gw, uint32_t local_port,
-				   char *host, uint32_t remote_port)
+				  char *host, uint32_t remote_port)
 {
 	struct static_port_map *spm;
+
+	debug("Adding map %d %s:%d to %s", local_port, host, remote_port, gw->name);
 
 	spm = safemalloc(sizeof(struct static_port_map), "static_port_map alloc");
 	spm->gw = gw->name;
@@ -17,6 +25,10 @@ int add_map_to_gw(struct gw_host *gw, uint32_t local_port,
 	spm->remote_host = safestrdup(host, "spm strdup hostname");
 	spm->remote_port = remote_port;
 	spm->channels = safemalloc(sizeof(ssh_channel *), "spm->channels[0]");
+
+	spm->socket_fd = create_listen_socket(local_port, "localhost");
+
+
 
 	saferealloc((void **)&gw->pm, (gw->n_maps + 1) * sizeof(spm), "gw->pm realloc");
 	gw->pm[gw->n_maps++] = spm;
@@ -26,6 +38,7 @@ int add_map_to_gw(struct gw_host *gw, uint32_t local_port,
 
 void add_channel_to_map(struct static_port_map *pm, ssh_channel channel)
 {
+	debug("Adding channel %p to map %s:%d", channel, pm->remote_host, pm->remote_port);
 	saferealloc((void **)&pm->channels, (pm->n_channels + 1) * sizeof(channel),
 				"pm->channel realloc");
 	pm->channels[pm->n_channels++] = channel;
@@ -34,6 +47,7 @@ void add_channel_to_map(struct static_port_map *pm, ssh_channel channel)
 int remove_channel_from_map(struct static_port_map *pm, ssh_channel ch)
 {
 	int i;
+
 
 	for(i = 0; i < pm->n_channels; i++)	{
 		if(pm->channels[i] == ch)	{
@@ -63,11 +77,31 @@ void free_map(struct static_port_map *pm)
 			log_msg("Error on channel close for %s", pm->gw);
 		ssh_channel_free(pm->channels[i]);
 	}
-
+	free(pm->channels);
 	free(pm->remote_host);
 	free(pm);
 }
 
+
+int connect_forward_channel(struct static_port_map *pm, int idx)
+{
+	int rc;
+	rc = ssh_channel_open_forward(pm->channels[idx], pm->remote_host,
+								  pm->remote_port, "localhost", pm->local_port);
+	if(rc != SSH_OK)	{
+		log_msg("Error: error opening forward %d -> %s:%d", pm->local_port,
+				pm->remote_host, pm->remote_port);
+		remove_channel_from_map(pm, pm->channels[idx]);
+		return 1;
+	}
+	return 0;
+}
+
+/*void print_chan(struct static_port_map *m)
+{
+	for(int i = 0; i < m->n_channels; i++)
+		printf("Chan %d (%p) open: %d\n", i, m->channels[i], ssh_channel_is_open(m->channels[i]));
+}*/
 
 /* Return index if *map is in gw->pm[] array, else -1 */
 static int map_in_gw(struct gw_host *gw, struct static_port_map *map)
