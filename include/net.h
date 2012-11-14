@@ -3,7 +3,7 @@
 
 
 int create_listen_socket(uint32_t local_port, const char *node);
-
+int accept_connection(int listenfd);
 
 
 #endif

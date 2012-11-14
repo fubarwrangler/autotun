@@ -27,7 +27,7 @@ int add_map_to_gw(struct gw_host *gw,
 	spm->local_port = local_port;
 	spm->remote_host = safestrdup(host, "spm strdup hostname");
 	spm->remote_port = remote_port;
-	spm->channels = safemalloc(sizeof(ssh_channel *), "spm->channels[0]");
+	spm->ch = safemalloc(sizeof(struct chan_sock *), "spm->ch");
 
 	spm->listen_fd = create_listen_socket(local_port, "localhost");
 
@@ -41,25 +41,27 @@ void add_channel_to_map(struct static_port_map *pm,
 						ssh_channel channel,
 						int sock_fd)
 {
+	struct chan_sock *cs = safemalloc(sizeof(struct chan_sock), "add ch cs");
+
 	debug("Adding channel %p to map %s:%d", channel, pm->remote_host, pm->remote_port);
-	saferealloc((void **)&pm->channels, (pm->n_channels + 1) * sizeof(channel),
+	saferealloc((void **)&pm->ch, (pm->n_channels + 1) * sizeof(pm->ch),
 				"pm->channel realloc");
-	saferealloc((void **)&pm->chan_socks, (pm->n_channels + 1) * sizeof(channel),
-				"pm->channel realloc");
-	pm->channels[pm->n_channels] = channel;
-	pm->chan_socks[pm->n_channels] = sock_fd;
+	cs->channel = channel;
+	cs->sock_fd = sock_fd;
+	pm->ch[pm->n_channels] = cs;
 	pm->n_channels++;
 }
 
-int remove_channel_from_map(struct static_port_map *pm, ssh_channel ch)
+int remove_channel_from_map(struct static_port_map *pm, struct chan_sock *cs)
 {
 	int i;
 
 	for(i = 0; i < pm->n_channels; i++)	{
-		if(pm->channels[i] == ch)	{
-			if(ssh_channel_is_open(ch) && ssh_channel_close(ch) != SSH_OK)
+		if(pm->ch[i] == cs)	{
+			if( ssh_channel_is_open(cs->channel) &&
+				ssh_channel_close(cs->channel) != SSH_OK)
 					log_msg("Error on channel close for %s", pm->gw);
-			ssh_channel_free(ch);
+			ssh_channel_free(cs->channel);
 			break;
 		}
 	}
@@ -67,28 +69,29 @@ int remove_channel_from_map(struct static_port_map *pm, ssh_channel ch)
 		return 1;
 
 	for(; i < pm->n_channels - 1; i++)
-		pm->channels[i] = pm->channels[i + 1];
+		pm->ch[i] = pm->ch[i + 1];
 
-	saferealloc((void **)&pm->channels, (--pm->n_channels + 1) * sizeof(ch),
+	saferealloc((void **)&pm->ch, pm->n_channels * sizeof(cs),
 				"pm->channel realloc");
+	pm->n_channels -= 1;
 	return 0;
 }
 
 void free_map(struct static_port_map *pm)
 {
 	for(int i = 0; i < pm->n_channels; i++)	{
-		if( ssh_channel_is_open(pm->channels[i]) &&
-			ssh_channel_close(pm->channels[i]) != SSH_OK
+		if( ssh_channel_is_open(pm->ch[i]->channel) &&
+			ssh_channel_close(pm->ch[i]->channel) != SSH_OK
 		  )
 			log_msg("Error on channel close for %s", pm->gw);
-		ssh_channel_free(pm->channels[i]);
+		ssh_channel_free(pm->ch[i]->channel);
 	}
-	free(pm->channels);
+	free(pm->ch);
 	free(pm->remote_host);
 	free(pm);
 }
 
-
+/*
 int connect_forward_channel(struct static_port_map *pm, int idx)
 {
 	int rc;
@@ -102,7 +105,7 @@ int connect_forward_channel(struct static_port_map *pm, int idx)
 	}
 	return 0;
 }
-
+*/
 /*void print_chan(struct static_port_map *m)
 {
 	for(int i = 0; i < m->n_channels; i++)

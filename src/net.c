@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netdb.h>
@@ -86,9 +87,23 @@ int create_listen_socket(uint32_t local_port, const char *node)
 
 	freeaddrinfo(servinfo);
 
-	if (listen(sockfd, 10) == -1) {
-		perror("listen");
-		exit(1);
-	}
+	if (listen(sockfd, 10) < 0)
+		log_exit_perror(1, "listen new fd=%d", sockfd);
+
 	return sockfd;
+}
+
+int accept_connection(int listenfd)
+{
+    struct sockaddr_storage their_addr;
+    socklen_t addr_size;
+    int new_fd;
+
+    // now accept an incoming connection:
+
+    addr_size = sizeof their_addr;
+	new_fd = accept(listenfd, (struct sockaddr *)&their_addr, &addr_size);
+	if(new_fd < 0)
+		log_exit_perror(1, "accept on socket fd=%d", listenfd);
+	return new_fd;
 }

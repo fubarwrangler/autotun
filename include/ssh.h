@@ -2,6 +2,7 @@
 #define _SSH_H__
 
 #include <libssh/libssh.h>
+#include "autotun.h"
 
 int connect_ssh_session(ssh_session *session, char *host);
 int authenticate_ssh_session(ssh_session session);

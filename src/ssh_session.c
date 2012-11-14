@@ -4,8 +4,6 @@
 #include "ssh.h"
 #include "autotun.h"
 
-//int ssh_verbosity = SSH_LOG_FUNCTIONS;
-
 int connect_ssh_session(ssh_session *session, char *host)
 {
 	int ssh_verbosity = (_verbose == 0) ? SSH_LOG_NOLOG : SSH_LOG_PROTOCOL;

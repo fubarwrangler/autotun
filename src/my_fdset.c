@@ -26,6 +26,7 @@ int add_fd_to_set(my_fdset set, int fd)
 	saferealloc((void **)&set->fds, (set->n + 1) * sizeof(set->fds), "add fdset");
 	set->fds[set->n] = fd;
 	set->n++;
+	return 0;
 }
 
 int fd_in_set(my_fdset set, int fd)
@@ -60,7 +61,7 @@ void destroy_fdset(my_fdset set)
 	free(set);
 }
 
-#define TEST_FD
+//#define TEST_FD
 #ifdef TEST_FD
 
 int _debug;
