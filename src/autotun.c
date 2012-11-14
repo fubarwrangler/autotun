@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <signal.h>
+#include <stddef.h>
 
 #include "autotun.h"
 #include "ssh.h"
@@ -17,6 +18,12 @@
 int _debug = 0;
 int _verbose = 0;
 char *prog_name = "autotunnel";
+
+#define container_of(ptr, type, member) ({ \
+			const typeof( ((type *)0)->member ) *__mptr = (ptr); \
+			(type *)( (char *)__mptr - offsetof(type,member) );})
+
+#define get_cs_for_channel(c) container_of(c, struct chan_sock, channel)
 
 bool shutdown_main_loop = false;
 
@@ -106,9 +113,6 @@ get_map_for_channel(struct gw_host *gw, struct chan_sock *cs)
 	return NULL;
 }
 
-/**
- *
- */
 int new_connection(struct gw_host *gw, int listenfd)
 {
 	struct static_port_map *pm;
@@ -138,15 +142,43 @@ int new_connection(struct gw_host *gw, int listenfd)
 	return new_fd;
 }
 
+static int update_channels(struct gw_host *gw,
+						   ssh_channel **chs,
+						   ssh_channel **outchs,
+						   int *nchan)
+{
+	int i, j, k;
+	int new_n = 0;
+
+	for(i = 0; i < gw->n_maps; i++)
+		new_n += gw->pm[i]->n_channels;
+	debug("Update channels: new_n = %d, old = %d", new_n, *nchan);
+
+	if(new_n == *nchan && new_n > 0)
+		return 0;
+
+	saferealloc((void **)chs, (new_n + 1) * sizeof(ssh_channel), "channels");
+	saferealloc((void **)outchs, (new_n + 1) * sizeof(ssh_channel), "outchannels");
+
+	for(i = 0, k = 0; i < gw->n_maps; i++)	{
+		for(j = 0; j < gw->pm[i]->n_channels; j++)
+			(*chs)[k++] = gw->pm[i]->ch[j]->channel;
+	}
+	(*chs)[new_n] = NULL;
+	*nchan = new_n;
+
+	return 1;
+}
+
 int select_loop(struct gw_host *gw)
 {
 
 	fd_set master, read_fds;
-	ssh_channel *channels, *outchannels;
-	socket_t maxfd;
+	ssh_channel *channels = NULL, *outchannels = NULL;
+	socket_t maxfd = 0;
 	my_fdset listen_set = new_fdset();
 	int i, j;
-	size_t n_chans = 0;
+	int n_chans = 0;
 
 	FD_ZERO(&master);
 	for(i = 0; i < gw->n_maps; i++)	{
@@ -159,18 +191,7 @@ int select_loop(struct gw_host *gw)
 			FD_SET(gw->pm[i]->ch[j]->sock_fd, &master);
 		}
 		add_fd_to_set(listen_set, gw->pm[i]->listen_fd);
-		n_chans += gw->pm[i]->n_channels;
 	}
-	channels = safemalloc(sizeof(ssh_channel) * (1 + n_chans),
-						  "channels ptr-array");
-	outchannels = safemalloc(sizeof(ssh_channel) * (1 + n_chans),
-							 "outchannels ptr-array");
-
-	for(i = 0; i < gw->n_maps; i++)	{
-		for(j = 0; j < gw->pm[i]->n_channels; j++)
-			channels[i] = gw->pm[i]->ch[j]->channel;
-	}
-	channels[n_chans] = NULL;
 
 	while(!shutdown_main_loop)	{
 		struct timeval tm;
@@ -184,6 +205,7 @@ int select_loop(struct gw_host *gw)
 			if(FD_ISSET(i, &read_fds))
 				printf(" %d", i);
 		putchar('\n');
+		update_channels(gw, &channels, &outchannels, &n_chans);
 		switch(ssh_select(channels, outchannels, maxfd + 1, &read_fds, &tm))
 		{
 			case SSH_EINTR:
@@ -192,7 +214,8 @@ int select_loop(struct gw_host *gw)
 			case SSH_OK:
 				break;
 			default:
-				log_exit(1, "ssh_select error");
+				log_msg("ssh_select error reported!");
+				shutdown_main_loop = true;
 		}
 		for(i = 0; i <= maxfd; i++)	{
 			struct chan_sock *cs;
@@ -216,7 +239,7 @@ int select_loop(struct gw_host *gw)
 				if((cs = get_chan_for_fd(gw, i)) == NULL)
 					log_exit(1, "Error: fd %d channel not found", i);
 
-				n_read = read(i, buf, sizeof(buf));
+				n_read = read(cs->sock_fd, buf, sizeof(buf));
 				if(n_read < 0)	{
 					log_exit(1, "Read error on fd=%d channel %p", i, cs->channel);
 				} else if(n_read == 0)	{
@@ -233,14 +256,19 @@ int select_loop(struct gw_host *gw)
 					FD_CLR(i, &master);
 				} else {
 					int n_written = 0;
-					printf("Read %d bytes on fd", n_read);
+					printf("Read %d bytes on fd\n", n_read);
 					while(n_written < n_read)	{
 						int rv;
+
 						rv = ssh_channel_write(cs->channel, buf + n_written,
-											   n_read - n_written);
-						if(rv == SSH_ERROR)	{
+												   n_read - n_written);
+						if(rv == SSH_ERROR || ssh_channel_is_eof(cs->channel))	{
 							log_msg("Error on ssh_write to channel %p: %s",
 									cs->channel, ssh_get_error(cs->channel));
+
+							/* Should we shut down this way? */
+							if(shutdown(cs->sock_fd, SHUT_WR) != 0)
+								log_exit_perror(1, "shutdown socket %d", i);
 							break;
 						}
 						n_written += rv;
@@ -248,8 +276,32 @@ int select_loop(struct gw_host *gw)
 				}
 			}
 		}
+		/* Read output from ssh and pass it to the client sockets */
+		for(i = 0; outchannels[i] != NULL; i++)	{
+			int n_read;
+			ssh_channel ch = outchannels[i];
+			n_read = ssh_channel_read(ch, buf, sizeof(buf), 0);
+			if(n_read > 0)	{
+				struct chan_sock *cs;
+				cs = get_cs_for_channel(ch);
+				int n_written = 0;
+				while(n_written < n_read)	{
+					int rc;
+					rc = write(cs->sock_fd, buf, n_read);
+					if(rc < 0)
+						log_exit(1, "Write error");
+					n_written += rc;
+				}
 
-
+				debug("Read %d bytes from channel %p: %s", n_read, ch, buf);
+			} else if (n_read == 0)	{
+				/* close socket */
+				debug("Zero bytes read from channel %p", ch);
+			} else {
+				/* error case */
+				debug("Error on channel %p", ch);
+			}
+		}
 	}
 
 	debug("Exiting main loop...");
