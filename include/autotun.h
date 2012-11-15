@@ -19,8 +19,8 @@ struct gw_host {
 	struct static_port_map **pm;
 };
 
+
 int select_loop(struct gw_host *gw);
-#include "port_map.h"
 
 extern int end_ssh_select_loop;
 

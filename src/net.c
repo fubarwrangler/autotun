@@ -40,7 +40,7 @@ static void get_ipaddr(char *buf, size_t len, struct sockaddr *sa)
         log_exit_perror(-1, "inet_ntop");
 }
 
-/* Much taken from the ridiculously useful http://beej.us/guide/bgnet/ */
+/* NOTE: Much taken from the ridiculously useful http://beej.us/guide/bgnet/ */
 int create_listen_socket(uint32_t local_port, const char *node)
 {
 	int sockfd;
@@ -59,7 +59,7 @@ int create_listen_socket(uint32_t local_port, const char *node)
 	if ((rv = getaddrinfo(node, pstr, &hints, &servinfo)) != 0)
 		log_exit(-1, "getaddrinfo: %s", gai_strerror(rv));
 
-	// loop through all the results and bind to the first we can
+	/* loop through all the results and bind to the first we can */
 	for(p = servinfo; p != NULL; p = p->ai_next) {
 		if ((sockfd = socket(p->ai_family, p->ai_socktype,
 				p->ai_protocol)) == -1) {
@@ -95,15 +95,14 @@ int create_listen_socket(uint32_t local_port, const char *node)
 
 int accept_connection(int listenfd)
 {
-    struct sockaddr_storage their_addr;
-    socklen_t addr_size;
-    int new_fd;
-
-    // now accept an incoming connection:
+	struct sockaddr_storage their_addr;
+	socklen_t addr_size;
+	int new_fd;
 
     addr_size = sizeof their_addr;
 	new_fd = accept(listenfd, (struct sockaddr *)&their_addr, &addr_size);
 	if(new_fd < 0)
 		log_exit_perror(1, "accept on socket fd=%d", listenfd);
+
 	return new_fd;
 }

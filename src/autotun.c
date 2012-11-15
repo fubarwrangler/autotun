@@ -9,13 +9,14 @@
 #include <stddef.h>
 
 #include "autotun.h"
+#include "port_map.h"
 #include "ssh.h"
 
 int _debug = 0;
 int _verbose = 0;
 char *prog_name = "autotunnel";
 
-static void safe_stop_handler(int signum)
+static void end_main_loop_handler(int signum)
 {
     signum += 1; /* To shut up compiler warning about unused arg */
     end_ssh_select_loop = 1;
@@ -25,18 +26,28 @@ static void safe_stop_handler(int signum)
 /* Setup signal handler */
 static void setup_signals(void)
 {
-    struct sigaction new_action;
+    struct sigaction sigterm_action, sighup_action;
     sigset_t self;
 
     sigemptyset(&self);
     sigaddset(&self, SIGINT);
     sigaddset(&self, SIGTERM);
-    new_action.sa_handler = safe_stop_handler;
-    new_action.sa_mask = self;
-    new_action.sa_flags = 0;
+    sigterm_action.sa_handler = end_main_loop_handler;
+    sigterm_action.sa_mask = self;
+    sigterm_action.sa_flags = 0;
 
-    sigaction(SIGINT, &new_action, NULL);
-    sigaction(SIGTERM, &new_action, NULL);
+	/* TODO: handle re-entry into main loop on reconfig */
+    sigemptyset(&self);
+    sigaddset(&self, SIGHUP);
+    sighup_action.sa_handler = end_main_loop_handler;
+    sighup_action.sa_mask = self;
+    sighup_action.sa_flags = 0;
+
+    sigaction(SIGINT, &sigterm_action, NULL);
+    sigaction(SIGTERM, &sigterm_action, NULL);
+
+	sigaction(SIGHUP, &sighup_action, NULL);
+
 }
 
 
@@ -84,28 +95,21 @@ void parseopts(int argc, char *argv[])
 	}
 }
 
-
 int main(int argc, char *argv[])
 {
-	parseopts(argc, argv);
+	struct gw_host *gw;
 
-	struct gw_host *gw = create_gw("gateway.domain");
+	parseopts(argc, argv);
+	setup_signals();
+
+	gw = create_gw("gateway.domain");
 
 	connect_gateway(gw);
 	add_map_to_gw(gw, 8111, "farmweb01.domain.local", 80);
 	add_map_to_gw(gw, 27017, "farmeval02.domain.local", 27017);
 	add_map_to_gw(gw, 2020, "nagios02.domain.local", 80);
+	add_map_to_gw(gw, 5050, "crsdb01.domain.local", 22);
 
-/*	ssh_session *s = &gw->session;
-
-	printf("Offset of session in gw: %ld\n", offsetof(struct gw_host, session));
-	printf("gw: %p, s %p, gw->s: %p, gw thru of: %p\n", gw, s, &gw->session,
-		((char *)(s) - offsetof(struct gw_host, session))
-	);
-
-	return 0; */
-
-	setup_signals();
 	select_loop(gw);
 
 	destroy_gw(gw);

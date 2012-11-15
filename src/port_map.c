@@ -111,11 +111,6 @@ int connect_forward_channel(struct static_port_map *pm, struct chan_sock *cs)
 	return 0;
 }
 
-/*void print_chan(struct static_port_map *m)
-{
-	for(int i = 0; i < m->n_channels; i++)
-		printf("Chan %d (%p) open: %d\n", i, m->channels[i], ssh_channel_is_open(m->channels[i]));
-}*/
 
 /* Return index if *map is in gw->pm[] array, else -1 */
 static int map_in_gw(struct gw_host *gw, struct static_port_map *map)

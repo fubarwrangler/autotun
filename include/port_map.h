@@ -4,6 +4,7 @@
 #include <libssh/libssh.h>
 #include "autotun.h"
 
+
 struct chan_sock {
 	ssh_channel channel;
 	int sock_fd;
