@@ -83,6 +83,7 @@ int remove_channel_from_map(struct static_port_map *pm, struct chan_sock *cs)
 
 void free_map(struct static_port_map *pm)
 {
+	debug("Freeing map %p (listen on %d)", pm, pm->local_port);
 	for(int i = 0; i < pm->n_channels; i++)	{
 		if( ssh_channel_is_open(pm->ch[i]->channel) &&
 			ssh_channel_close(pm->ch[i]->channel) != SSH_OK
@@ -95,7 +96,6 @@ void free_map(struct static_port_map *pm)
 	free(pm->remote_host);
 	free(pm);
 }
-
 
 int connect_forward_channel(struct static_port_map *pm, struct chan_sock *cs)
 {
@@ -137,6 +137,3 @@ int remove_map_from_gw(struct gw_host *gw, struct static_port_map *map)
 	}
 	return 0;
 }
-
-
-

@@ -22,7 +22,6 @@ static void end_main_loop_handler(int signum)
     end_ssh_select_loop = 1;
 }
 
-
 /* Setup signal handler */
 static void setup_signals(void)
 {
@@ -49,7 +48,6 @@ static void setup_signals(void)
 	sigaction(SIGHUP, &sighup_action, NULL);
 
 }
-
 
 struct gw_host *create_gw(char *hostname)
 {
