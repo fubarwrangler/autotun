@@ -249,10 +249,10 @@ int select_loop(struct gw_host *gw)
 				}
 			} else if (n_read == 0)	{
 				/* close socket */
-				debug("BUG!: Zero bytes read from channel %p", ch);
+				log_exit(-1, "BUG!: Zero bytes read from channel %p", ch);
 			} else {
 				/* error case */
-				debug("Error on channel %p", ch);
+				log_msg("Error on channel %p", ch);
 			}
 		}
 	}

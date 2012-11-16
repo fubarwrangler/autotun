@@ -14,7 +14,6 @@ enum session_stat_vars {
 struct gw_host {
 	char *name;
 	ssh_session session;
-	int status;
 	int n_maps;
 	struct static_port_map **pm;
 };
