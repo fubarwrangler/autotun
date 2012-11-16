@@ -111,27 +111,23 @@ int connect_forward_channel(struct static_port_map *pm, struct chan_sock *cs)
 	return 0;
 }
 
-
-/* Return index if *map is in gw->pm[] array, else -1 */
-static int map_in_gw(struct gw_host *gw, struct static_port_map *map)
-{
-	for(int i = 0; i < gw->n_maps; i++)
-		if(map == gw->pm[i])
-			return i;
-	return -1;
-}
-
 int remove_map_from_gw(struct gw_host *gw, struct static_port_map *map)
 {
-	int idx;
+	int i;
 
-	if((idx = map_in_gw(gw, map)) < 0)	{
+	for(i = 0; i < gw->n_maps; i++)
+		if(map == gw->pm[i])
+			break;
+
+	if(i == gw->n_maps)	{
 		log_msg("Error: map %p not found in gw->pm (%p)", map, gw->pm);
 		return 1;
 	}
 
+	if(close(map->listen_fd) < 0)
+		log_exit_perror(-1, "Error closing listening fd=%d", map->listen_fd);
+
 	if(gw->n_maps >= 1)	{
-		int i = idx;
 		while(i < gw->n_maps - 1)	{
 			gw->pm[i] = gw->pm[i + 1];
 			i++;

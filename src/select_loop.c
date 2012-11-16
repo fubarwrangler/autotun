@@ -56,7 +56,10 @@ get_cs_for_channel(struct gw_host *gw, ssh_channel ch)
 	return NULL;
 }
 
-int new_connection(struct gw_host *gw, int listenfd)
+int new_connection(struct gw_host *gw,
+				   int listenfd,
+				   fd_set *listen_set,
+				   fd_set *master_set)
 {
 	struct static_port_map *pm;
 	struct chan_sock *cs;
@@ -78,7 +81,9 @@ int new_connection(struct gw_host *gw, int listenfd)
 	if(connect_forward_channel(pm, cs) < 0)	{
 		log_msg("Removing listening port %d because bad connection", pm->local_port);
 
-		remove_channel_from_map(pm, cs);
+		remove_map_from_gw(gw, pm);
+		FD_CLR(listenfd, listen_set);
+		FD_CLR(listenfd, master_set);
 
 		return -1;
 	}
@@ -169,7 +174,7 @@ int select_loop(struct gw_host *gw)
 
 			/* On connect, create+add new channel to map */
 			if(FD_ISSET(i, &listen_set))	{
-				int new_fd = new_connection(gw, i);
+				int new_fd = new_connection(gw, i, &listen_set, &master);
 				if(new_fd >= 0)	{
 					FD_SET(new_fd, &master);
 					if(new_fd > maxfd)
