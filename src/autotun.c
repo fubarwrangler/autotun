@@ -9,12 +9,14 @@
 #include <stddef.h>
 
 #include "autotun.h"
+#include "config.h"
 #include "port_map.h"
 #include "ssh.h"
 
 int _debug = 0;
 int _verbose = 0;
 char *prog_name = "autotunnel";
+char *cfgfile = NULL;
 
 static void end_main_loop_handler(int signum)
 {
@@ -49,7 +51,7 @@ static void setup_signals(void)
 
 }
 
-struct gw_host *create_gw(char *hostname)
+struct gw_host *create_gw(const char *hostname)
 {
 	struct gw_host *gw = safemalloc(sizeof(struct gw_host), "gw_host struct");
 	gw->name = safestrdup(hostname, "gw_host strdup");
@@ -74,12 +76,11 @@ void destroy_gw(struct gw_host *gw)
 	free(gw);
 }
 
-
 void parseopts(int argc, char *argv[])
 {
 	int c;
 
-	while((c=getopt(argc, argv, "vd")) != -1)	{
+	while((c=getopt(argc, argv, "vdf:")) != -1)	{
 		switch(c)	{
 			case 'd':
 				_debug = 1;
@@ -87,19 +88,41 @@ void parseopts(int argc, char *argv[])
 			case 'v':
 				_verbose = 1;
 				break;
+			case 'f':
+				cfgfile = safestrdup(optarg, "cfgfile optarg");
+				break;
 			default:
 				exit(2);
 		}
+	}
+	if(cfgfile == NULL)	{
+		char *home = getenv("HOME");
+		if(home == NULL)
+			log_exit(3, "Error: $HOME not set for default config file");
+		cfgfile = safemalloc(strlen(home) + 16, "malloc cfgfile");
+		strcpy(cfgfile, home);
+		strcat(cfgfile, "/.autotunrc");
 	}
 }
 
 int main(int argc, char *argv[])
 {
 	struct gw_host *gw;
+	struct ini_file *ini;
+	struct ini_section *sec;
 
 	parseopts(argc, argv);
 	setup_signals();
 
+	ini = read_configfile(cfgfile, &sec);
+	free(cfgfile);
+
+	gw = process_section(sec);
+	connect_gateway(gw);
+
+
+
+/*
 	gw = create_gw("gateway.domain");
 
 	connect_gateway(gw);
@@ -107,9 +130,10 @@ int main(int argc, char *argv[])
 	add_map_to_gw(gw, 27017, "farmeval02.domain.local", 27017);
 	add_map_to_gw(gw, 2020, "nagios02.domain.local", 80);
 	add_map_to_gw(gw, 5050, "crsdb01.domain.local", 22);
-
+*/
 	select_loop(gw);
 
 	destroy_gw(gw);
+	ini_free_data(ini);
 	return 0;
 }
