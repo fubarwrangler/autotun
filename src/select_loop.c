@@ -58,10 +58,10 @@ int new_connection(struct gw_host *gw,
 
 	cs = add_channel_to_map(pm, channel, new_fd);
 
-	if(connect_forward_channel(pm, cs) < 0)	{
+	if(connect_forward_channel(cs) < 0)	{
 		log_msg("Removing listening port %d because bad connection", pm->local_port);
 
-		remove_map_from_gw(gw, pm);
+		remove_map_from_gw(pm);
 		FD_CLR(listenfd, listen_set);
 		FD_CLR(listenfd, master_set);
 
@@ -98,16 +98,7 @@ static int update_channels(struct gw_host *gw,
 	return 1;
 }
 
-struct ch_rm {
-	struct static_port_map *pm;
-	struct chan_sock *cs;
-};
-
-/* FIXME: save channels_to_remove for end of main loop so we don't look up a
- * channel that was free'd in the for-loop over sockets in the loop over channels
- */
-
-#define CHAN_BUF_SIZE 1024
+#define CHAN_BUF_SIZE 2048
 
 int select_loop(struct gw_host *gw)
 {
@@ -137,7 +128,7 @@ int select_loop(struct gw_host *gw)
 		struct timeval tm;
 		int n_read;
 		int n_chan_rm;
-		struct ch_rm *channels_to_remove;
+		struct chan_sock **channels_to_remove;
 		struct chan_sock *cs;
 
 		tm.tv_sec = 5;
@@ -187,22 +178,18 @@ int select_loop(struct gw_host *gw)
 
 			if(n_read <= 0)	{
 			/* Tear down the channel on zero-read or error if user disconnected */
-				struct static_port_map *pm;
-
 				if(n_read < 0)
 					log_msg("Read error on fd=%d channel %p: %s",
 							i, cs->channel, strerror(errno));
 				else
 					debug("Read 0 bytes on fd=%d, closing channel %p", i, cs->channel);
 
-				pm = cs->parent;
 
 				saferealloc((void **)&channels_to_remove,
-							(n_chan_rm + 1) * sizeof(struct ch_rm),
+							(n_chan_rm + 1) * sizeof(struct chan_sock *),
 							"removed channels");
 
-				channels_to_remove[n_chan_rm].cs = cs;
-				channels_to_remove[n_chan_rm].pm = pm;
+				channels_to_remove[n_chan_rm] = cs;
 				n_chan_rm += 1;
 
 				FD_CLR(i, &master);
@@ -260,8 +247,7 @@ int select_loop(struct gw_host *gw)
 		}
 		if(n_chan_rm > 0)	{
 			for(i = 0; i < n_chan_rm; i++)
-				remove_channel_from_map(channels_to_remove[i].pm,
-										channels_to_remove[i].cs);
+				remove_channel_from_map(channels_to_remove[i]);
 			free(channels_to_remove);
 		}
 	}

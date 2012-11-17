@@ -58,12 +58,13 @@ add_channel_to_map(struct static_port_map *pm,
 	return cs;
 }
 
-int remove_channel_from_map(struct static_port_map *pm, struct chan_sock *cs)
+int remove_channel_from_map(struct chan_sock *cs)
 {
+	struct static_port_map *pm = cs->parent;
 	int i;
 
-	if(cs->parent != pm)
-		log_exit(1, "Corrupt chan_sock parent %p->parent should be %p", cs, pm);
+	if(cs->parent == NULL)
+		log_exit(1, "Corrupt chan_sock parent %p->parent NULL", cs);
 
 	for(i = 0; i < pm->n_channels; i++)	{
 		if(pm->ch[i] == cs)	{
@@ -108,22 +109,24 @@ void free_map(struct static_port_map *pm)
 	free(pm);
 }
 
-int connect_forward_channel(struct static_port_map *pm, struct chan_sock *cs)
+int connect_forward_channel(struct chan_sock *cs)
 {
+	struct static_port_map *pm = cs->parent;
 	int rc;
 	rc = ssh_channel_open_forward(cs->channel, pm->remote_host,
 								  pm->remote_port, "localhost", pm->local_port);
 	if(rc != SSH_OK)	{
 		log_msg("Error: error opening forward %d -> %s:%d", pm->local_port,
 				pm->remote_host, pm->remote_port);
-		remove_channel_from_map(pm, cs);
+		remove_channel_from_map(cs);
 		return -1;
 	}
 	return 0;
 }
 
-int remove_map_from_gw(struct gw_host *gw, struct static_port_map *map)
+int remove_map_from_gw(struct static_port_map *map)
 {
+	struct gw_host *gw = map->parent;
 	int i;
 
 	for(i = 0; i < gw->n_maps; i++)
