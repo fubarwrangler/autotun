@@ -34,18 +34,6 @@ get_chan_for_fd(struct gw_host *gw, int fd)
 	return NULL;
 }
 
-static struct static_port_map *
-get_map_for_channel(struct gw_host *gw, struct chan_sock *cs)
-{
-	for(int i = 0; i < gw->n_maps; i++)	{
-		for(int j = 0; j < gw->pm[i]->n_channels; j++)	{
-			if(cs == gw->pm[i]->ch[j])
-				return gw->pm[i];
-		}
-	}
-	return NULL;
-}
-
 static struct chan_sock *
 get_cs_for_channel(struct gw_host *gw, ssh_channel ch)
 {
@@ -217,8 +205,7 @@ int select_loop(struct gw_host *gw)
 				else
 					debug("Read 0 bytes on fd=%d, closing channel %p", i, cs->channel);
 
-				if((pm = get_map_for_channel(gw, cs)) == NULL)
-					log_exit(1, "Error: map not found for channel");
+				pm = cs->parent;
 
 				saferealloc((void **)&channels_to_remove,
 							(n_chan_rm + 1) * sizeof(struct ch_rm),

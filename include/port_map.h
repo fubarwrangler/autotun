@@ -8,7 +8,7 @@
 struct chan_sock {
 	ssh_channel channel;
 	int sock_fd;
-	int remove_self;
+	struct static_port_map *parent;
 };
 
 struct static_port_map {

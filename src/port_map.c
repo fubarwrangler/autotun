@@ -49,9 +49,9 @@ add_channel_to_map(struct static_port_map *pm,
 				"pm->channel realloc");
 	cs->channel = channel;
 	cs->sock_fd = sock_fd;
-	cs->remove_self = 0;
 	pm->ch[pm->n_channels] = cs;
 	pm->n_channels++;
+	cs->parent = pm;
 	return cs;
 }
 
