@@ -158,8 +158,8 @@ int select_loop(struct gw_host *gw)
 	while(end_ssh_select_loop == 0)	{
 		struct timeval tm;
 		int n_read;
+		int n_chan_rm;
 		struct ch_rm *channels_to_remove;
-		int removed_channels;
 		struct chan_sock *cs;
 
 		tm.tv_sec = 5;
@@ -178,7 +178,7 @@ int select_loop(struct gw_host *gw)
 				end_ssh_select_loop = 1;
 		}
 
-		removed_channels = 0;
+		n_chan_rm = 0;
 		channels_to_remove = NULL;
 		/* Loop over our custom select'd fd's to see if there are any new
 		 * connections or reads waiting to happen and perform them
@@ -221,12 +221,12 @@ int select_loop(struct gw_host *gw)
 					log_exit(1, "Error: map not found for channel");
 
 				saferealloc((void **)&channels_to_remove,
-							(removed_channels + 1) * sizeof(struct ch_rm),
+							(n_chan_rm + 1) * sizeof(struct ch_rm),
 							"removed channels");
 
-				channels_to_remove[removed_channels].cs = cs;
-				channels_to_remove[removed_channels].pm = pm;
-				removed_channels += 1;
+				channels_to_remove[n_chan_rm].cs = cs;
+				channels_to_remove[n_chan_rm].pm = pm;
+				n_chan_rm += 1;
 
 				FD_CLR(i, &master);
 			} else {
@@ -280,8 +280,8 @@ int select_loop(struct gw_host *gw)
 				log_msg("Error on channel %p", ch);
 			}
 		}
-		if(removed_channels > 0)	{
-			for(i = 0; i < removed_channels; i++)
+		if(n_chan_rm > 0)	{
+			for(i = 0; i < n_chan_rm; i++)
 				remove_channel_from_map(channels_to_remove[i].pm,
 										channels_to_remove[i].cs);
 			free(channels_to_remove);
