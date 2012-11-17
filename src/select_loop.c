@@ -102,19 +102,18 @@ static int update_channels(struct gw_host *gw,
 
 	for(i = 0; i < gw->n_maps; i++)
 		new_n += gw->pm[i]->n_channels;
+
 	//debug("Update channels: new_n = %d, old = %d", new_n, *nchan);
 
-	if(new_n == *nchan && new_n > 0)
-		return 0;
-
-	saferealloc((void **)chs, (new_n + 1) * sizeof(ssh_channel), "channels");
-	saferealloc((void **)outchs, (new_n + 1) * sizeof(ssh_channel), "outchannels");
-
-	for(i = 0, k = 0; i < gw->n_maps; i++)	{
-		for(j = 0; j < gw->pm[i]->n_channels; j++)
-			//if(gw->pm[i]->ch[j]->remove_self == 0)
-			(*chs)[k++] = gw->pm[i]->ch[j]->channel; /* FIXME: leak */
+	if(new_n != *nchan || (*chs == NULL))	{
+		saferealloc((void **)chs, (new_n + 1) * sizeof(ssh_channel), "channels");
+		saferealloc((void **)outchs, (new_n + 1) * sizeof(ssh_channel), "outchannels");
 	}
+
+	for(i = 0, k = 0; i < gw->n_maps; i++)
+		for(j = 0; j < gw->pm[i]->n_channels; j++)
+			(*chs)[k++] = gw->pm[i]->ch[j]->channel;
+
 	(*chs)[new_n] = NULL;
 	*nchan = new_n;
 
@@ -163,8 +162,8 @@ int select_loop(struct gw_host *gw)
 		int removed_channels;
 		struct chan_sock *cs;
 
-		tm.tv_sec = 2;
-		tm.tv_usec = 500000;
+		tm.tv_sec = 5;
+		tm.tv_usec = 0;
 		read_fds = master;
 		update_channels(gw, &channels, &outchannels, &n_chans);
 		switch(ssh_select(channels, outchannels, maxfd + 1, &read_fds, &tm))
@@ -203,7 +202,8 @@ int select_loop(struct gw_host *gw)
 			/* Otherwise read data from socket and write to channel */
 			if((cs = get_chan_for_fd(gw, i)) == NULL)
 				log_exit(1, "Error: fd %d channel not found", i);
-			n_read = read(cs->sock_fd, buf, sizeof(buf));
+
+			n_read = recv(cs->sock_fd, buf, sizeof(buf), 0);
 
 			debug("Read activity on user socket fd=%d: %d bytes", i, n_read);
 
@@ -265,7 +265,7 @@ int select_loop(struct gw_host *gw)
 
 				while(n_written < n_read)	{
 					int rc;
-					rc = write(cs->sock_fd, buf, n_read);
+					rc = send(cs->sock_fd, buf, n_read, 0);
 					if(rc < 0)	{
 						log_exit_perror(1, "Write error on socket %d: %s");
 						break;
