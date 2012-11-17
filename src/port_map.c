@@ -49,6 +49,7 @@ add_channel_to_map(struct static_port_map *pm,
 				"pm->channel realloc");
 	cs->channel = channel;
 	cs->sock_fd = sock_fd;
+	cs->remove_self = 0;
 	pm->ch[pm->n_channels] = cs;
 	pm->n_channels++;
 	return cs;
@@ -70,6 +71,7 @@ int remove_channel_from_map(struct static_port_map *pm, struct chan_sock *cs)
 	if(i == pm->n_channels) /* Channel not found in *pm */
 		return 1;
 
+	debug("Destroy channel %p, closing fd=%d", cs->channel, cs->sock_fd);
 	for(; i < pm->n_channels - 1; i++)
 		pm->ch[i] = pm->ch[i + 1];
 

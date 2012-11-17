@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <unistd.h>
+#include <string.h>
+#include <errno.h>
 
 
 #include "autotun.h"
@@ -110,13 +112,23 @@ static int update_channels(struct gw_host *gw,
 
 	for(i = 0, k = 0; i < gw->n_maps; i++)	{
 		for(j = 0; j < gw->pm[i]->n_channels; j++)
-			(*chs)[k++] = gw->pm[i]->ch[j]->channel;
+			//if(gw->pm[i]->ch[j]->remove_self == 0)
+			(*chs)[k++] = gw->pm[i]->ch[j]->channel; /* FIXME: leak */
 	}
 	(*chs)[new_n] = NULL;
 	*nchan = new_n;
 
 	return 1;
 }
+
+struct ch_rm {
+	struct static_port_map *pm;
+	struct chan_sock *cs;
+};
+
+/* FIXME: save channels_to_remove for end of main loop so we don't look up a
+ * channel that was free'd in the for-loop over sockets in the loop over channels
+ */
 
 #define CHAN_BUF_SIZE 1024
 
@@ -147,6 +159,8 @@ int select_loop(struct gw_host *gw)
 	while(end_ssh_select_loop == 0)	{
 		struct timeval tm;
 		int n_read;
+		struct ch_rm *channels_to_remove;
+		int removed_channels;
 		struct chan_sock *cs;
 
 		tm.tv_sec = 2;
@@ -164,6 +178,9 @@ int select_loop(struct gw_host *gw)
 				log_msg("ssh_select error reported!");
 				end_ssh_select_loop = 1;
 		}
+
+		removed_channels = 0;
+		channels_to_remove = NULL;
 		/* Loop over our custom select'd fd's to see if there are any new
 		 * connections or reads waiting to happen and perform them
 		 */
@@ -190,18 +207,26 @@ int select_loop(struct gw_host *gw)
 
 			debug("Read activity on user socket fd=%d: %d bytes", i, n_read);
 
-			if(n_read < 0)	{
-				log_exit_perror(1, "Read error on fd=%d channel %p", i, cs->channel);
-			} else if(n_read == 0)	{
-			/* Tear down the channel on zero-read if user disconnected */
+			if(n_read <= 0)	{
+			/* Tear down the channel on zero-read or error if user disconnected */
 				struct static_port_map *pm;
 
-				debug("Read 0 bytes on fd=%d, closing channel %p", i, cs->channel);
+				if(n_read < 0)
+					log_msg("Read error on fd=%d channel %p: %s",
+							i, cs->channel, strerror(errno));
+				else
+					debug("Read 0 bytes on fd=%d, closing channel %p", i, cs->channel);
 
 				if((pm = get_map_for_channel(gw, cs)) == NULL)
 					log_exit(1, "Error: map not found for channel");
 
-				remove_channel_from_map(pm, cs);
+				saferealloc((void **)&channels_to_remove,
+							(removed_channels + 1) * sizeof(struct ch_rm),
+							"removed channels");
+
+				channels_to_remove[removed_channels].cs = cs;
+				channels_to_remove[removed_channels].pm = pm;
+				removed_channels += 1;
 
 				FD_CLR(i, &master);
 			} else {
@@ -209,7 +234,6 @@ int select_loop(struct gw_host *gw)
 				int n_written = 0;
 				while(n_written < n_read)	{
 					int rv;
-					//if(ssh_channel_is_eof(cs->channel))
 					rv = ssh_channel_write(cs->channel, buf + n_written,
 												n_read - n_written);
 					if(rv == SSH_ERROR || ssh_channel_is_eof(cs->channel))	{
@@ -217,14 +241,15 @@ int select_loop(struct gw_host *gw)
 								cs->channel, ssh_get_error(cs->channel));
 
 						/* Should we shut down this way? */
-						if(shutdown(cs->sock_fd, SHUT_WR) != 0)
-							log_exit_perror(1, "shutdown socket %d", i);
+						if(shutdown(cs->sock_fd, SHUT_RD) != 0)
+							log_msg("shutdown socket %d", i);
 						break;
 					}
 					n_written += rv;
 				}
 			}
 		}
+
 		/* Read any output from ssh and pass it to the client sockets */
 		for(i = 0; outchannels[i] != NULL; i++)	{
 			ssh_channel ch = outchannels[i];
@@ -254,6 +279,12 @@ int select_loop(struct gw_host *gw)
 				/* error case */
 				log_msg("Error on channel %p", ch);
 			}
+		}
+		if(removed_channels > 0)	{
+			for(i = 0; i < removed_channels; i++)
+				remove_channel_from_map(channels_to_remove[i].pm,
+										channels_to_remove[i].cs);
+			free(channels_to_remove);
 		}
 	}
 
