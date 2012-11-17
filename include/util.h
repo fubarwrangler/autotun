@@ -15,6 +15,19 @@ void saferealloc(void **p, size_t new_size, const char *fail);
 char *safestrdup(const char *str, const char *fail);
 void debug(const char *fmt, ...);
 
+
+struct fd_map {
+	size_t len;
+	void **ptrs;
+};
+
+struct fd_map *new_fdmap(void);
+int add_fdmap(struct fd_map *m, int i, void *p);
+void *get_fdmap(struct fd_map *m, int idx);
+void remove_fdmap(struct fd_map *m, int idx);
+void del_fdmap(struct fd_map *fd);
+
+
 extern int _debug;
 extern char *prog_name;
 extern int _verbose;

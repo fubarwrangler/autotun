@@ -15,23 +15,13 @@ int end_ssh_select_loop = 0;
 static struct static_port_map *
 get_map_for_listening(struct gw_host *gw, int listen_fd)
 {
-	for(int i = 0; i < gw->n_maps; i++)	{
-		if(gw->pm[i]->listen_fd == listen_fd)
-			return gw->pm[i];
-	}
-	return NULL;
+	return get_fdmap(gw->listen_fdmap, listen_fd);
 }
 
 static struct chan_sock *
 get_chan_for_fd(struct gw_host *gw, int fd)
 {
-	for(int i = 0; i < gw->n_maps; i++)	{
-		for(int j = 0; j < gw->pm[i]->n_channels; j++)	{
-			if(fd == gw->pm[i]->ch[j]->sock_fd)
-				return gw->pm[i]->ch[j];
-		}
-	}
-	return NULL;
+	return get_fdmap(gw->chan_sock_fdmap, fd);
 }
 
 static struct chan_sock *

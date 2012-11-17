@@ -92,3 +92,59 @@ char *safestrdup(const char *str, const char *fail)
 		log_exit(MEMORY_ERROR, "strdup failed: %s", fail);
 	return p;
 }
+
+struct fd_map *new_fdmap(void)
+{
+	struct fd_map *fd;
+	fd = safemalloc(sizeof(struct fd_map), "new fdmap");
+	fd->ptrs = safemalloc(1 * sizeof(void *), "new fdmap ptrarray");
+	fd->ptrs[0] = NULL;
+	fd->len = 1;
+	return fd;
+}
+
+int add_fdmap(struct fd_map *m, int i, void *p)
+{
+	debug("Add %d -> %p to fdmap %p", i, p, m);
+	if(m->len <= i)	{
+		debug("Grow fdmap %p to %d entries", m, i + 1);
+		saferealloc((void **)&m->ptrs, (i + 1) * sizeof(void *), "fdmap: grow");
+		for(int j = m->len; j < i; j++)
+			m->ptrs[j] = NULL;
+		m->len = i + 1;
+	}
+	m->ptrs[i] = p;
+	return 0;
+}
+
+void *get_fdmap(struct fd_map *m, int idx)
+{
+	if(m->len <= idx)
+		log_exit(1, "Error: fdmap asked for %d, only %d long", idx, m->len);
+	return m->ptrs[idx];
+}
+
+void remove_fdmap(struct fd_map *m, int idx)
+{
+	debug("Remove element %d -> %p from fdmap %p", idx, m->ptrs[idx], m);
+	m->ptrs[idx] = NULL;
+	if(idx + 1 == m->len)	{
+		int i;
+		for(i = m->len - 1; i > 0; i--)	{
+			if(m->ptrs[i] != NULL)
+				break;
+		}
+		debug("Removed top element, shrinking fdmap to %d", i);
+		saferealloc((void **)&m->ptrs, (i + 1) * sizeof(void *), "fdmap: shrink");
+		m->len = i + 1;
+	}
+}
+
+void del_fdmap(struct fd_map *fd)
+{
+	if(fd->ptrs != NULL)
+		free(fd->ptrs);
+	free(fd);
+}
+
+

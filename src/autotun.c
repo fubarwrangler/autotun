@@ -57,6 +57,8 @@ struct gw_host *create_gw(const char *hostname)
 	gw->name = safestrdup(hostname, "gw_host strdup");
 	gw->n_maps = 0;
 	gw->pm = safemalloc(sizeof(struct static_port_map *), "gw_host pm array");
+	gw->listen_fdmap = new_fdmap();
+	gw->chan_sock_fdmap = new_fdmap();
 	return gw;
 }
 
@@ -70,6 +72,8 @@ void destroy_gw(struct gw_host *gw)
 {
 	for(int i = 0; i < gw->n_maps; i++)
 		free_map(gw->pm[i]);
+	del_fdmap(gw->listen_fdmap);
+	del_fdmap(gw->chan_sock_fdmap);
 	free(gw->pm);
 	free(gw->name);
 	end_ssh_session(gw->session);

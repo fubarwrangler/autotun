@@ -23,13 +23,15 @@ int add_map_to_gw(struct gw_host *gw,
 	debug("Adding map %d %s:%d to %s", local_port, host, remote_port, gw->name);
 
 	spm = safemalloc(sizeof(struct static_port_map), "static_port_map alloc");
-	spm->gw = gw->name;
+	spm->parent = gw;
 	spm->local_port = local_port;
 	spm->remote_host = safestrdup(host, "spm strdup hostname");
 	spm->remote_port = remote_port;
 	spm->ch = safemalloc(sizeof(struct chan_sock *), "spm->ch");
 
 	spm->listen_fd = create_listen_socket(local_port, "localhost");
+	add_fdmap(gw->listen_fdmap, spm->listen_fd, spm);
+	spm->parent = gw;
 
 	saferealloc((void **)&gw->pm, (gw->n_maps + 1) * sizeof(spm), "gw->pm realloc");
 	gw->pm[gw->n_maps++] = spm;
@@ -49,6 +51,7 @@ add_channel_to_map(struct static_port_map *pm,
 				"pm->channel realloc");
 	cs->channel = channel;
 	cs->sock_fd = sock_fd;
+	add_fdmap(pm->parent->chan_sock_fdmap, sock_fd, cs);
 	pm->ch[pm->n_channels] = cs;
 	pm->n_channels++;
 	cs->parent = pm;
@@ -59,11 +62,14 @@ int remove_channel_from_map(struct static_port_map *pm, struct chan_sock *cs)
 {
 	int i;
 
+	if(cs->parent != pm)
+		log_exit(1, "Corrupt chan_sock parent %p->parent should be %p", cs, pm);
+
 	for(i = 0; i < pm->n_channels; i++)	{
 		if(pm->ch[i] == cs)	{
 			if( ssh_channel_is_open(cs->channel) &&
 				ssh_channel_close(cs->channel) != SSH_OK)
-					log_msg("Error on channel close for %s", pm->gw);
+					log_msg("Error on channel close for %s", pm->parent->name);
 			ssh_channel_free(cs->channel);
 			break;
 		}
@@ -79,6 +85,7 @@ int remove_channel_from_map(struct static_port_map *pm, struct chan_sock *cs)
 				"pm->channel realloc");
 	pm->n_channels -= 1;
 	close(cs->sock_fd);
+	remove_fdmap(cs->parent->parent->chan_sock_fdmap, cs->sock_fd);
 	free(cs);
 	return 0;
 }
@@ -90,10 +97,12 @@ void free_map(struct static_port_map *pm)
 		if( ssh_channel_is_open(pm->ch[i]->channel) &&
 			ssh_channel_close(pm->ch[i]->channel) != SSH_OK
 		  )
-			log_msg("Error on channel close for %s", pm->gw);
+			log_msg("Error on channel close for %s", pm->parent->name);
 		ssh_channel_free(pm->ch[i]->channel);
 		free(pm->ch[i]);
+		remove_fdmap(pm->parent->chan_sock_fdmap, pm->ch[i]->sock_fd);
 	}
+	remove_fdmap(pm->parent->listen_fdmap, pm->listen_fd);
 	free(pm->ch);
 	free(pm->remote_host);
 	free(pm);

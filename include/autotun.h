@@ -18,8 +18,9 @@ struct gw_host {
 	ssh_session session;
 	bool compression;
 	bool close_on_failure;
-
+	struct fd_map *listen_fdmap;
 	int n_maps;
+	struct fd_map *chan_sock_fdmap;
 	struct static_port_map **pm;
 };
 
