@@ -242,9 +242,10 @@ int select_loop(struct gw_host *gw)
 
 				while(n_written < n_read)	{
 					int rc;
-					rc = send(cs->sock_fd, buf, n_read, 0);
+					rc = send(cs->sock_fd, buf, n_read, MSG_NOSIGNAL);
 					if(rc < 0)	{
-						log_exit_perror(1, "Write error on socket %d: %s");
+						log_msg("Write error on socket %d: %s",
+								cs->sock_fd, strerror(errno));
 						break;
 					}
 					n_written += rc;
@@ -254,7 +255,7 @@ int select_loop(struct gw_host *gw)
 				log_exit(-1, "BUG!: Zero bytes read from channel %p", ch);
 			} else {
 				/* error case */
-				log_msg("Error on channel %p", ch);
+				log_msg("Error with ssh_channel_read on channel %p", ch);
 			}
 		}
 		if(n_chan_rm > 0)	{
