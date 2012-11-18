@@ -20,8 +20,22 @@ char *cfgfile = NULL;
 
 static void end_main_loop_handler(int signum)
 {
-    signum += 1; /* To shut up compiler warning about unused arg */
-    end_ssh_select_loop = 1;
+	static int sigintcnt = 0;
+
+	switch(signum)	{
+		case SIGINT:
+			finish_main_loop = true;
+			sigintcnt++;
+			break;
+		case SIGTERM:
+			hard_shutdown = true;
+			break;
+		default:
+			break;
+	}
+
+	if(sigintcnt > 1)
+		hard_shutdown = true;
 }
 
 /* Setup signal handler */
@@ -46,7 +60,6 @@ static void setup_signals(void)
 
     sigaction(SIGINT, &sigterm_action, NULL);
     sigaction(SIGTERM, &sigterm_action, NULL);
-
 	sigaction(SIGHUP, &sighup_action, NULL);
 
 }
@@ -81,17 +94,25 @@ void create_gw_session(struct gw_host *gw)
 
 void connect_gateway(struct gw_host *gw)
 {
-	create_gw_session(gw);
 	connect_ssh_session(&gw->session);
 	authenticate_ssh_session(gw->session);
 }
 
+void disconnect_gateway(struct gw_host *gw)
+{
+	for(int i = 0; i < gw->n_maps; i++)	{
+		if(gw->pm[i]->n_channels < 0)
+			log_exit(1, "Error: cannot disconnect gw %s, %d active channels found"
+						"on map %p", gw->name, gw->pm[i]->n_channels, gw->pm[i]);
+		free_map(gw->pm[i]);
+	}
+
+	ssh_disconnect(gw->session);
+}
+
 void destroy_gw(struct gw_host *gw)
 {
-	for(int i = 0; i < gw->n_maps; i++)
-		free_map(gw->pm[i]);
-
-	end_ssh_session(gw->session);
+	disconnect_gateway(gw);
 
 	del_fdmap(gw->listen_fdmap);
 	del_fdmap(gw->chan_sock_fdmap);
@@ -143,6 +164,7 @@ int main(int argc, char *argv[])
 
 	gw = process_section_to_gw(sec);
 
+	create_gw_session(gw);
 	connect_gateway(gw);
 
 

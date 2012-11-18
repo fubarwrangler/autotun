@@ -10,7 +10,8 @@
 #include "port_map.h"
 #include "net.h"
 
-int end_ssh_select_loop = 0;
+bool finish_main_loop = false;
+bool hard_shutdown = false;
 
 static struct static_port_map *
 get_map_for_listening(struct gw_host *gw, int listen_fd)
@@ -106,6 +107,8 @@ int select_loop(struct gw_host *gw)
 	socket_t maxfd = 0;
 	char buf[CHAN_BUF_SIZE];
 	int i, j, n_chans = 0;
+	float sec_since_activity = 0.0;
+	bool exit_loop = false;
 
 	FD_ZERO(&master);
 	FD_ZERO(&listen_set);
@@ -122,17 +125,22 @@ int select_loop(struct gw_host *gw)
 	}
 
 	/* This is the program's main loop right here */
-	while(end_ssh_select_loop == 0)	{
+	while(!exit_loop && !hard_shutdown)	{
 		struct timeval tm;
 		int n_read;
 		int n_chan_rm;
 		struct chan_sock **channels_to_remove;
 		struct chan_sock *cs;
 
-		tm.tv_sec = 5;
-		tm.tv_usec = 0;
+		tm.tv_sec = (finish_main_loop) ? 0 : 5;
+		tm.tv_usec = (finish_main_loop) ? 250000 : 0;
 		read_fds = master;
+		debug("Select timeout: %fs", (float)tm.tv_sec + ((float)tm.tv_usec / 1000000.0));
 		update_channels(gw, &channels, &outchannels, &n_chans);
+		if(n_chans == 0)	{
+			if(finish_main_loop)
+				exit_loop = true;
+		}
 		switch(ssh_select(channels, outchannels, maxfd + 1, &read_fds, &tm))
 		{
 			case SSH_EINTR:
@@ -142,7 +150,7 @@ int select_loop(struct gw_host *gw)
 				break;
 			default:
 				log_msg("ssh_select error reported!");
-				end_ssh_select_loop = 1;
+				finish_main_loop = 1;
 		}
 
 		n_chan_rm = 0;
@@ -157,11 +165,19 @@ int select_loop(struct gw_host *gw)
 
 			/* On connect, create+add new channel to map */
 			if(FD_ISSET(i, &listen_set))	{
-				int new_fd = new_connection(gw, i, &listen_set, &master);
-				if(new_fd >= 0)	{
-					FD_SET(new_fd, &master);
-					if(new_fd > maxfd)
-						maxfd = new_fd;
+				int new_fd;
+
+				if(finish_main_loop)	{
+					FD_CLR(i, &listen_set);
+					FD_CLR(i, &master);
+					close(i);
+				} else {
+					new_fd = new_connection(gw, i, &listen_set, &master);
+					if(new_fd >= 0)	{
+						FD_SET(new_fd, &master);
+						if(new_fd > maxfd)
+							maxfd = new_fd;
+					}
 				}
 				continue;
 			}

@@ -30,6 +30,7 @@ struct gw_host {
 int select_loop(struct gw_host *gw);
 struct gw_host *create_gw(const char *hostname);
 
-extern int end_ssh_select_loop;
+extern bool finish_main_loop;
+extern bool hard_shutdown;
 
 #endif
