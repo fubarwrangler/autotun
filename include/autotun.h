@@ -16,12 +16,14 @@ enum session_stat_vars {
 struct gw_host {
 	char *name;
 	ssh_session session;
-	bool compression;
-	bool close_on_failure;
-	struct fd_map *listen_fdmap;
 	int n_maps;
 	struct fd_map *chan_sock_fdmap;
 	struct static_port_map **pm;
+	struct fd_map *listen_fdmap;
+	bool compression;
+	int c_level;
+	bool close_on_failure;
+	bool strict_host_key;
 };
 
 

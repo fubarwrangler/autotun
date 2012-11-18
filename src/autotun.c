@@ -62,9 +62,27 @@ struct gw_host *create_gw(const char *hostname)
 	return gw;
 }
 
+void create_gw_session(struct gw_host *gw)
+{
+	int ssh_verbosity = (_verbose == 0) ? SSH_LOG_NOLOG : SSH_LOG_FUNCTIONS;
+	int off = 0, on = 1;
+	if((gw->session = ssh_new()) == NULL)
+		log_exit(-1, "ssh_new(): Error creating ssh session");
+
+	ssh_options_set(gw->session, SSH_OPTIONS_HOST, gw->name);
+	ssh_options_set(gw->session, SSH_OPTIONS_LOG_VERBOSITY, &ssh_verbosity);
+	ssh_options_set(gw->session, SSH_OPTIONS_SSH1, &off);
+
+	if(gw->compression)	{
+		ssh_options_set(gw->session, SSH_OPTIONS_COMPRESSION, &on);
+		ssh_options_set(gw->session, SSH_OPTIONS_COMPRESSION_LEVEL, &gw->c_level);
+	}
+}
+
 void connect_gateway(struct gw_host *gw)
 {
-	connect_ssh_session(&gw->session, gw->name);
+	create_gw_session(gw);
+	connect_ssh_session(&gw->session);
 	authenticate_ssh_session(gw->session);
 }
 
@@ -72,11 +90,13 @@ void destroy_gw(struct gw_host *gw)
 {
 	for(int i = 0; i < gw->n_maps; i++)
 		free_map(gw->pm[i]);
+
+	end_ssh_session(gw->session);
+
 	del_fdmap(gw->listen_fdmap);
 	del_fdmap(gw->chan_sock_fdmap);
 	free(gw->pm);
 	free(gw->name);
-	end_ssh_session(gw->session);
 	free(gw);
 }
 
@@ -121,7 +141,8 @@ int main(int argc, char *argv[])
 	ini = read_configfile(cfgfile, &sec);
 	free(cfgfile);
 
-	gw = process_section(sec);
+	gw = process_section_to_gw(sec);
+
 	connect_gateway(gw);
 
 

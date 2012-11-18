@@ -78,7 +78,28 @@ static void parse_host_line(char *str, char **host, uint32_t *port)
 		log_exit(1, "Error: superfluous data found in host line: %s", str);
 }
 
-struct gw_host *process_section(struct ini_section *sec)
+
+static void update_gw_config(struct ini_section *sec, struct gw_host *gw)
+{
+	int err;
+
+	/* Zero / false is default */
+	gw->compression = ini_get_section_bool(sec, "compression", &err);
+	gw->c_level = ini_get_section_int(sec, "compression_level", &err);
+	if(gw->compression && err != INI_OK)
+		gw->c_level = 5;
+	else if(!gw->compression && err == INI_OK)
+		log_exit(2, "CFG Error: cannot set compression_level without compression");
+	if(gw->compression)
+		debug("Compression enabled, level %d", gw->c_level);
+
+	gw->strict_host_key = ini_get_section_bool(sec, "strict_host_key", &err);
+	if(err != INI_OK)	gw->strict_host_key = true;
+	if(!gw->strict_host_key)
+		debug("WARNING: strict host key checking DISABLED!");
+}
+
+struct gw_host *process_section_to_gw(struct ini_section *sec)
 {
 	struct ini_kv_pair *kvp;
 	struct gw_host *gw;
@@ -86,6 +107,7 @@ struct gw_host *process_section(struct ini_section *sec)
 	assert(sec != NULL && sec->items != NULL);
 
 	gw = create_gw(sec->name);
+	update_gw_config(sec, gw);
 
 	kvp = sec->items;
 	while(kvp)	{
@@ -100,6 +122,7 @@ struct gw_host *process_section(struct ini_section *sec)
 		}
 		kvp = kvp->next;
 	}
+
 	return gw;
 }
 

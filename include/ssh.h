@@ -4,9 +4,16 @@
 #include <libssh/libssh.h>
 #include "autotun.h"
 
-int connect_ssh_session(ssh_session *session, char *host);
+struct session_opts {
+	int strict;
+	int compression;
+	int c_level;
+};
+
+int connect_ssh_session(ssh_session *session);
 int authenticate_ssh_session(ssh_session session);
 void end_ssh_session(ssh_session session);
+
 
 
 #endif

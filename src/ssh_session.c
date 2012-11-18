@@ -2,17 +2,9 @@
 #include <stdlib.h>
 
 #include "ssh.h"
-#include "autotun.h"
 
-int connect_ssh_session(ssh_session *session, char *host)
+int connect_ssh_session(ssh_session *session)
 {
-	int ssh_verbosity = (_verbose == 0) ? SSH_LOG_NOLOG : SSH_LOG_PROTOCOL;
-	if((*session = ssh_new()) == NULL)
-		log_exit(-1, "ssh_new(): Error creating ssh session");
-
-	ssh_options_set(*session, SSH_OPTIONS_HOST, host);
-	ssh_options_set(*session, SSH_OPTIONS_LOG_VERBOSITY, &ssh_verbosity);
-
 	if(ssh_connect(*session) != SSH_OK)
 		log_exit(-1, "Error connecting to host: %s", ssh_get_error(*session));
 
@@ -22,7 +14,7 @@ int connect_ssh_session(ssh_session *session, char *host)
 		case SSH_SERVER_FILE_NOT_FOUND:
 			break;
 		default:
-			log_exit(-1, "Unknown server: %s", host);
+			log_exit(-1, "Unknown ssh server");
 	}
 
 	return 0;

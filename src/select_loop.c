@@ -81,8 +81,6 @@ static int update_channels(struct gw_host *gw,
 	for(i = 0; i < gw->n_maps; i++)
 		new_n += gw->pm[i]->n_channels;
 
-	//debug("Update channels: new_n = %d, old = %d", new_n, *nchan);
-
 	if(new_n != *nchan || (*chs == NULL))	{
 		saferealloc((void **)chs, (new_n + 1) * sizeof(ssh_channel), "channels");
 		saferealloc((void **)outchs, (new_n + 1) * sizeof(ssh_channel), "outchannels");
@@ -205,8 +203,8 @@ int select_loop(struct gw_host *gw)
 								cs->channel, ssh_get_error(cs->channel));
 
 						/* Should we shut down this way? */
-						if(shutdown(cs->sock_fd, SHUT_RD) != 0)
-							log_msg("shutdown socket %d", i);
+						if(shutdown(cs->sock_fd, SHUT_WR) != 0)
+							log_msg("Shutdown socket %d: %s", i, strerror(errno));
 						break;
 					}
 					n_written += rv;
