@@ -105,9 +105,7 @@ struct fd_map *new_fdmap(void)
 
 int add_fdmap(struct fd_map *m, int i, void *p)
 {
-	debug("Add %d -> %p to fdmap %p", i, p, m);
 	if(m->len <= i)	{
-		debug("Grow fdmap %p to %d entries", m, i + 1);
 		saferealloc((void **)&m->ptrs, (i + 1) * sizeof(void *), "fdmap: grow");
 		for(int j = m->len; j < i; j++)
 			m->ptrs[j] = NULL;
@@ -126,7 +124,6 @@ void *get_fdmap(struct fd_map *m, int idx)
 
 void remove_fdmap(struct fd_map *m, int idx)
 {
-	debug("Remove element %d -> %p from fdmap %p", idx, m->ptrs[idx], m);
 	m->ptrs[idx] = NULL;
 	if(idx + 1 == m->len)	{
 		int i;
@@ -134,7 +131,6 @@ void remove_fdmap(struct fd_map *m, int idx)
 			if(m->ptrs[i] != NULL)
 				break;
 		}
-		debug("Removed top element, shrinking fdmap to %d", i);
 		saferealloc((void **)&m->ptrs, (i + 1) * sizeof(void *), "fdmap: shrink");
 		m->len = i + 1;
 	}

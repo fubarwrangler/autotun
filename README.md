@@ -20,3 +20,12 @@ seems tricky).
 
 I think libssh will allow multiplexing multiple "channels" on one connection so
 this is like managing a bunch of "ssh -L" or "ssh -D" commands.
+
+Building
+========
+
+This needs two libraries, one, libssh, must be installed on the system. The
+other is my own libiniread, which optionally be linked against statically.
+The code can be found at fubarwrangler/iniread.
+
+
