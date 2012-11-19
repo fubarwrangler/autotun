@@ -188,16 +188,14 @@ int select_loop(struct gw_host *gw)
 
 			n_read = recv(cs->sock_fd, buf, sizeof(buf), 0);
 
-			debug("Read activity on user socket fd=%d: %d bytes", i, n_read);
+			debug("Read %d bytes from user socket fd=%d write to channel %p",
+				  n_read, i, cs->channel);
 
 			if(n_read <= 0)	{
 			/* Tear down the channel on zero-read or error if user disconnected */
 				if(n_read < 0)
 					log_msg("Read error on fd=%d channel %p: %s",
 							i, cs->channel, strerror(errno));
-				else
-					debug("Read 0 bytes on fd=%d, closing channel %p", i, cs->channel);
-
 
 				saferealloc((void **)&channels_to_remove,
 							(n_chan_rm + 1) * sizeof(struct chan_sock *),
@@ -238,8 +236,10 @@ int select_loop(struct gw_host *gw)
 
 				int n_written = 0;
 
-				debug("Read %d bytes from channel %p", n_read, ch);
 				cs = get_cs_for_channel(gw, ch);
+
+				debug("Read %d bytes from channel %p, write to %d",
+					  n_read, ch, cs->sock_fd);
 
 				while(n_written < n_read)	{
 					int rc;

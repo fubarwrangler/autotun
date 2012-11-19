@@ -93,17 +93,14 @@ int remove_channel_from_map(struct chan_sock *cs)
 
 void free_map(struct static_port_map *pm)
 {
-	debug("Freeing map %p (listen on %d)", pm, pm->local_port);
-	for(int i = 0; i < pm->n_channels; i++)	{
-		if( ssh_channel_is_open(pm->ch[i]->channel) &&
-			ssh_channel_close(pm->ch[i]->channel) != SSH_OK
-		  )
-			log_msg("Error on channel close for %s", pm->parent->name);
-		ssh_channel_free(pm->ch[i]->channel);
-		free(pm->ch[i]);
-		remove_fdmap(pm->parent->chan_sock_fdmap, pm->ch[i]->sock_fd);
-	}
+	debug("Freeing map %p (listen on %d) %d channels", pm, pm->local_port, pm->n_channels);
+
+	while(pm->n_channels)
+		remove_channel_from_map(pm->ch[0]);
+
 	remove_fdmap(pm->parent->listen_fdmap, pm->listen_fd);
+	if(close(pm->listen_fd) < 0)
+		log_exit_perror(-1, "Error closing listening fd=%d", pm->listen_fd);
 	free(pm->ch);
 	free(pm->remote_host);
 	free(pm);
@@ -137,9 +134,6 @@ int remove_map_from_gw(struct static_port_map *map)
 		log_msg("Error: map %p not found in gw->pm (%p)", map, gw->pm);
 		return 1;
 	}
-
-	if(close(map->listen_fd) < 0)
-		log_exit_perror(-1, "Error closing listening fd=%d", map->listen_fd);
 
 	if(gw->n_maps >= 1)	{
 		while(i < gw->n_maps - 1)	{
