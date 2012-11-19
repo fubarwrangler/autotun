@@ -31,6 +31,7 @@ int add_map_to_gw(struct gw_host *gw,
 
 	spm->listen_fd = create_listen_socket(local_port, "localhost");
 	add_fdmap(gw->listen_fdmap, spm->listen_fd, spm);
+	spm->listen_alive = 1;
 	spm->parent = gw;
 
 	saferealloc((void **)&gw->pm, (gw->n_maps + 1) * sizeof(spm), "gw->pm realloc");
@@ -99,7 +100,7 @@ void free_map(struct static_port_map *pm)
 		remove_channel_from_map(pm->ch[0]);
 
 	remove_fdmap(pm->parent->listen_fdmap, pm->listen_fd);
-	if(close(pm->listen_fd) < 0)
+	if(pm->listen_alive && close(pm->listen_fd) < 0)
 		log_exit_perror(-1, "Error closing listening fd=%d", pm->listen_fd);
 	free(pm->ch);
 	free(pm->remote_host);

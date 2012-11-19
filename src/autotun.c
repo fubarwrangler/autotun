@@ -30,6 +30,9 @@ static void end_main_loop_handler(int signum)
 		case SIGTERM:
 			hard_shutdown = true;
 			break;
+		case SIGALRM:
+			got_timer = true;
+			break;
 		default:
 			break;
 	}
@@ -47,14 +50,14 @@ static void setup_signals(void)
     sigemptyset(&self);
     sigaddset(&self, SIGINT);
     sigaddset(&self, SIGTERM);
-    sigterm_action.sa_handler = end_main_loop_handler;
+    sigterm_action.sa_handler = signal_handler;
     sigterm_action.sa_mask = self;
     sigterm_action.sa_flags = 0;
 
 	/* TODO: handle re-entry into main loop on reconfig */
     sigemptyset(&self);
     sigaddset(&self, SIGHUP);
-    sighup_action.sa_handler = end_main_loop_handler;
+    sighup_action.sa_handler = signal_handler;
     sighup_action.sa_mask = self;
     sighup_action.sa_flags = 0;
 
@@ -72,6 +75,7 @@ struct gw_host *create_gw(const char *hostname)
 	gw->pm = safemalloc(sizeof(struct static_port_map *), "gw_host pm array");
 	gw->listen_fdmap = new_fdmap();
 	gw->chan_sock_fdmap = new_fdmap();
+	gw->noconn_timeout = -1;
 	return gw;
 }
 
@@ -94,31 +98,41 @@ void create_gw_session(struct gw_host *gw)
 
 void connect_gateway(struct gw_host *gw)
 {
+	debug("Session connected to gw %s", gw->name);
 	connect_ssh_session(&gw->session);
 	authenticate_ssh_session(gw->session);
 }
 
 void disconnect_gateway(struct gw_host *gw)
 {
+	debug("%d maps on gw", gw->n_maps);
 	for(int i = 0; i < gw->n_maps; i++)	{
-		if(gw->pm[i]->n_channels < 0)
+		if(gw->pm[i]->n_channels > 0)
 			log_exit(1, "Error: cannot disconnect gw %s, %d active channels found"
-						"on map %p", gw->name, gw->pm[i]->n_channels, gw->pm[i]);
+						"on map %p (%d)", gw->name, gw->pm[i]->n_channels, gw->pm[i], i);
 		free_map(gw->pm[i]);
 	}
-
+	debug("WARNING: Gateway disconnected");
 	ssh_disconnect(gw->session);
 }
 
 void destroy_gw(struct gw_host *gw)
 {
 	disconnect_gateway(gw);
+	ssh_free(gw->session);
 
 	del_fdmap(gw->listen_fdmap);
 	del_fdmap(gw->chan_sock_fdmap);
 	free(gw->pm);
 	free(gw->name);
 	free(gw);
+}
+
+int gw_graceful_close(struct gw_host *gw)
+{
+
+
+	return 1;
 }
 
 void parseopts(int argc, char *argv[])
@@ -150,6 +164,34 @@ void parseopts(int argc, char *argv[])
 	}
 }
 
+char *strrev(char *str)
+{
+	char c, *p, *q;
+
+	p = q = str;
+	while(*q++)
+		;
+	q-=2;
+	do	{
+		c = *p;
+		*p = *q;
+		*q = c;
+	} while(++p < --q);
+	return str;
+}
+char *print_bin(int x)
+{
+	static char buf[128];
+	int y = 0;
+
+	memset(buf, 0, sizeof(buf));
+	do {
+		buf[y++] = (x & 0x01) ? '1' : '0';
+	} while(x >>= 1 && y < sizeof(buf) - 1);
+
+	return strrev(buf);
+}
+
 int main(int argc, char *argv[])
 {
 	struct gw_host *gw;
@@ -167,17 +209,6 @@ int main(int argc, char *argv[])
 	create_gw_session(gw);
 	connect_gateway(gw);
 
-
-
-/*
-	gw = create_gw("gateway.domain");
-
-	connect_gateway(gw);
-	add_map_to_gw(gw, 8111, "farmweb01.domain.local", 80);
-	add_map_to_gw(gw, 27017, "farmeval02.domain.local", 27017);
-	add_map_to_gw(gw, 2020, "nagios02.domain.local", 80);
-	add_map_to_gw(gw, 5050, "crsdb01.domain.local", 22);
-*/
 	select_loop(gw);
 
 	destroy_gw(gw);

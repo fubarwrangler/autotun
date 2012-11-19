@@ -3,15 +3,17 @@
 #include <stddef.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/time.h>
 #include <errno.h>
-
 
 #include "autotun.h"
 #include "port_map.h"
 #include "net.h"
+#include "ssh.h"
 
 bool finish_main_loop = false;
 bool hard_shutdown = false;
+bool got_timer = false;
 
 static struct static_port_map *
 get_map_for_listening(struct gw_host *gw, int listen_fd)
@@ -107,9 +109,10 @@ int select_loop(struct gw_host *gw)
 	socket_t maxfd = 0;
 	char buf[CHAN_BUF_SIZE];
 	int i, j, n_chans = 0;
-	float sec_since_activity = 0.0;
+	int since_last_activity;
 	bool exit_loop = false;
 
+	got_timer = true;
 	FD_ZERO(&master);
 	FD_ZERO(&listen_set);
 	for(i = 0; i < gw->n_maps; i++)	{
@@ -132,11 +135,20 @@ int select_loop(struct gw_host *gw)
 		struct chan_sock **channels_to_remove;
 		struct chan_sock *cs;
 
+
 		tm.tv_sec = (finish_main_loop) ? 0 : 5;
 		tm.tv_usec = (finish_main_loop) ? 250000 : 0;
 		read_fds = master;
-		debug("Select timeout: %fs", (float)tm.tv_sec + ((float)tm.tv_usec / 1000000.0));
+		//debug("Select timeout: %fs", (float)tm.tv_sec + ((float)tm.tv_usec / 1000000.0));
+
 		update_channels(gw, &channels, &outchannels, &n_chans);
+		if(got_timer)	{
+			if(n_chans == 0 && ssh_is_connected(gw->session))	{
+				ssh_disconnect(gw->session);
+				debug("Session disconnected");
+			}
+			//got_timer = false;
+		}
 		if(n_chans == 0)	{
 			if(finish_main_loop)
 				exit_loop = true;
@@ -163,14 +175,19 @@ int select_loop(struct gw_host *gw)
 			if(!FD_ISSET(i, &read_fds))
 				continue;
 
+			since_last_activity = 0;
+
 			/* On connect, create+add new channel to map */
 			if(FD_ISSET(i, &listen_set))	{
 				int new_fd;
 
 				if(finish_main_loop)	{
+					struct static_port_map *pm;
 					FD_CLR(i, &listen_set);
 					FD_CLR(i, &master);
+					pm = get_map_for_listening(gw, i);
 					close(i);
+					pm->listen_alive = 0;
 				} else {
 					new_fd = new_connection(gw, i, &listen_set, &master);
 					if(new_fd >= 0)	{
@@ -229,6 +246,8 @@ int select_loop(struct gw_host *gw)
 		/* Read any output from ssh and pass it to the client sockets */
 		for(i = 0; outchannels[i] != NULL; i++)	{
 			ssh_channel ch = outchannels[i];
+
+			since_last_activity = 0;
 
 			n_read = ssh_channel_read(ch, buf, sizeof(buf), 0);
 

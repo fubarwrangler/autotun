@@ -13,6 +13,7 @@ struct session_opts {
 int connect_ssh_session(ssh_session *session);
 int authenticate_ssh_session(ssh_session session);
 void end_ssh_session(ssh_session session);
+const char *disconnect_reason(ssh_session session);
 
 
 

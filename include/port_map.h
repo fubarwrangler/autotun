@@ -13,6 +13,7 @@ struct chan_sock {
 
 struct static_port_map {
 	int listen_fd;
+	int listen_alive;
 	uint32_t local_port;
 	char *remote_host;
 	uint32_t remote_port;
