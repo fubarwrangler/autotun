@@ -32,6 +32,7 @@ int add_map_to_gw(struct gw_host *gw,
 	spm->listen_fd = create_listen_socket(local_port, "localhost");
 	add_fdmap(gw->listen_fdmap, spm->listen_fd, spm);
 	spm->parent = gw;
+	spm->n_channels = 0;
 
 	saferealloc((void **)&gw->pm, (gw->n_maps + 1) * sizeof(spm), "gw->pm realloc");
 	gw->pm[gw->n_maps++] = spm;

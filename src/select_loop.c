@@ -231,12 +231,10 @@ int select_loop(struct gw_host *gw)
 			ssh_channel ch = outchannels[i];
 
 			n_read = ssh_channel_read(ch, buf, sizeof(buf), 0);
+			cs = get_cs_for_channel(gw, ch);
 
 			if(n_read > 0)	{
-
 				int n_written = 0;
-
-				cs = get_cs_for_channel(gw, ch);
 
 				debug("Read %d bytes from channel %p, write to %d",
 					  n_read, ch, cs->sock_fd);
@@ -257,6 +255,12 @@ int select_loop(struct gw_host *gw)
 			} else {
 				/* error case */
 				log_msg("Error with ssh_channel_read on channel %p", ch);
+				saferealloc((void **)&channels_to_remove,
+							(n_chan_rm + 1) * sizeof(struct chan_sock *),
+							"removed channels");
+
+				channels_to_remove[n_chan_rm] = cs;
+				n_chan_rm += 1;
 			}
 		}
 		if(n_chan_rm > 0)	{

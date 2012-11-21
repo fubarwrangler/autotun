@@ -13,8 +13,10 @@ int connect_ssh_session(ssh_session *session)
 		case SSH_SERVER_NOT_KNOWN:
 		case SSH_SERVER_FILE_NOT_FOUND:
 			break;
+		case SSH_SERVER_ERROR:
+			log_exit(-1, "SSH Server error with session: %s", ssh_get_error(*session));
 		default:
-			log_exit(-1, "Unknown ssh server");
+			log_exit(-1, "Unknown error validating server");
 	}
 
 	return 0;
