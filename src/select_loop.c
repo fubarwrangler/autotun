@@ -133,7 +133,6 @@ int select_loop(struct gw_host *gw)
 		tm.tv_sec = (finish_main_loop) ? 0 : 5;
 		tm.tv_usec = (finish_main_loop) ? 250000 : 0;
 		read_fds = master;
-		debug("Select timeout: %fs", (float)tm.tv_sec + ((float)tm.tv_usec / 1000000.0));
 		update_channels(gw, &channels, &outchannels, &n_chans);
 		if(n_chans == 0)	{
 			if(finish_main_loop)

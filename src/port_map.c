@@ -12,8 +12,22 @@
 #include "autotun.h"
 #include "net.h"
 
-
-int add_map_to_gw(struct gw_host *gw,
+/**
+ * Add a mapping (local port -> remote host + port) to the gateway structure.
+ *
+ * Creates a listening port for the local side and adds the fd to the fd_map
+ * on the gateway that maps listening ports to the map structure.
+ *
+ * The mappings are stored in an array of pointers gw->pm that is grown
+ * appropriately and gw->n_maps stores the size of this array.
+ *
+ * @gw			gateway structure to add to
+ * @local_port	the local port to listen on -- bound to localhost:NNNN
+ * @host		the remote host to tunnel to
+ * @remote_port	the port on the remote side to connect to
+ * @return		Nothing, if anything fails here the program exits
+ */
+void add_map_to_gw(struct gw_host *gw,
 				  uint32_t local_port,
 				  char *host,
 				  uint32_t remote_port)
@@ -36,10 +50,20 @@ int add_map_to_gw(struct gw_host *gw,
 
 	saferealloc((void **)&gw->pm, (gw->n_maps + 1) * sizeof(spm), "gw->pm realloc");
 	gw->pm[gw->n_maps++] = spm;
-
-	return 0;
 }
 
+/**
+ * Add a new channel to a specific remote-host mapping
+ *
+ * Creates a new channel in the mapping and returns a pointer to it, updating
+ * the fd_map in the gateway (pm->parent) that maps connection socket fd to
+ * the new channel structure.
+ *
+ * @pm		mapping to add a new channel to
+ * @channel	newly created ssh_channel
+ * @sock_fd	socket that the client is connected on
+ * @return	Pointer to newly created channel struct
+ */
 struct chan_sock *
 add_channel_to_map(struct static_port_map *pm,
 				   ssh_channel channel,
@@ -59,7 +83,21 @@ add_channel_to_map(struct static_port_map *pm,
 	return cs;
 }
 
-int remove_channel_from_map(struct chan_sock *cs)
+/**
+ * Remove a channel from its associated port mapping structure
+ *
+ * Take the channel given and remove it from its parent port_map structure,
+ * closing it first and removing it from the fd_map in the gateway struct that
+ * maps client sockets -> channels.
+ *
+ * All channel pointers in pm->ch[] higher than this one are shifted down by
+ * one position and the array is shrunk appropriately.
+ *
+ * @cs		channel structure to remove
+ * @return	Nothing, if there are errors here they are either logged or the
+ *          program exits (on malloc failure)
+ */
+void remove_channel_from_map(struct chan_sock *cs)
 {
 	struct static_port_map *pm = cs->parent;
 	int i;
@@ -76,8 +114,6 @@ int remove_channel_from_map(struct chan_sock *cs)
 			break;
 		}
 	}
-	if(i == pm->n_channels) /* Channel not found in *pm */
-		return 1;
 
 	debug("Destroy channel %p, closing fd=%d", cs->channel, cs->sock_fd);
 	for(; i < pm->n_channels - 1; i++)
@@ -87,12 +123,13 @@ int remove_channel_from_map(struct chan_sock *cs)
 				"pm->channel realloc");
 	pm->n_channels -= 1;
 	close(cs->sock_fd);
-	remove_fdmap(cs->parent->parent->chan_sock_fdmap, cs->sock_fd);
+
+	/* Remove this fd from parent gw's fd_map */
+	remove_fdmap(pm->parent->chan_sock_fdmap, cs->sock_fd);
 	free(cs);
-	return 0;
 }
 
-void free_map(struct static_port_map *pm)
+static void free_map(struct static_port_map *pm)
 {
 	debug("Freeing map %p (listen on %d) %d channels", pm, pm->local_port, pm->n_channels);
 
@@ -122,7 +159,17 @@ int connect_forward_channel(struct chan_sock *cs)
 	return 0;
 }
 
-int remove_map_from_gw(struct static_port_map *map)
+/**
+ * Remove a mapping from the gateway
+ *
+ * All channel pointers in gw->pm[] higher than this one are shifted down by
+ * one position and the array is shrunk appropriately. The map is freed, which
+ * closes all channels that may still be associated with it.
+ *
+ * @map		The map to delete
+ * @return	Nothing, anything that goes wrong exits the program
+ */
+void remove_map_from_gw(struct static_port_map *map)
 {
 	struct gw_host *gw = map->parent;
 	int i;
@@ -131,10 +178,8 @@ int remove_map_from_gw(struct static_port_map *map)
 		if(map == gw->pm[i])
 			break;
 
-	if(i == gw->n_maps)	{
-		log_msg("Error: map %p not found in gw->pm (%p)", map, gw->pm);
-		return 1;
-	}
+	if(i == gw->n_maps)
+		log_exit(1, "Error: map %p not found in gw->pm (%p)", map, gw->pm);
 
 	if(gw->n_maps >= 1)	{
 		while(i < gw->n_maps - 1)	{
