@@ -83,12 +83,10 @@ void connect_gateway(struct gw_host *gw)
 
 void disconnect_gateway(struct gw_host *gw)
 {
-	for(int i = 0; i < gw->n_maps; i++)	{
-		if(gw->pm[i]->n_channels > 0)
-			log_exit(1, "Error: cannot disconnect gw %s, %d active channels found"
-						"on map %p", gw->name, gw->pm[i]->n_channels, gw->pm[i]);
-		free_map(gw->pm[i]);
-	}
+	ssh_blocking_flush(gw->session, 10);
+
+	while(gw->n_maps)
+		remove_map_from_gw(gw->pm[0]);
 
 	ssh_disconnect(gw->session);
 }
