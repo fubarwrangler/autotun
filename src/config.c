@@ -10,6 +10,21 @@
 #include "port_map.h"
 #include "util.h"
 
+
+static void process_global_config(struct ini_section *sec)
+{
+	char *p;
+
+	p = ini_get_section_value(sec, "log_file");
+	if(p != NULL)	{
+		if((debug_stream = fopen(p, "a")) == NULL)	{
+			debug_stream = stderr;
+			log_exit_perror(-1, "Error opening logfile '%s'", p);
+		}
+	}
+}
+
+
 struct ini_file *
 read_configfile(const char *filename, struct ini_section **first_sec)
 {
@@ -29,9 +44,10 @@ read_configfile(const char *filename, struct ini_section **first_sec)
 	if(ini->first == NULL)
 		log_exit(1, "Configuration file is not valid");
 
-	if(strcmp(ini->first->name, "") == 0)
+	if(strcmp(ini->first->name, "") == 0)	{
+		process_global_config(ini->first);
 		*first_sec = ini->first->next;
-	else
+	} else
 		*first_sec = ini->first;
 
 	if(*first_sec == NULL)
@@ -99,6 +115,24 @@ static void update_gw_config(struct ini_section *sec, struct gw_host *gw)
 		debug("WARNING: strict host key checking DISABLED!");
 }
 
+
+static void create_gw_session(struct gw_host *gw)
+{
+	int ssh_verbosity = (_verbose == 0) ? SSH_LOG_NOLOG : SSH_LOG_FUNCTIONS;
+	int off = 0, on = 1;
+	if((gw->session = ssh_new()) == NULL)
+		log_exit(-1, "ssh_new(): Error creating ssh session");
+
+	ssh_options_set(gw->session, SSH_OPTIONS_HOST, gw->name);
+	ssh_options_set(gw->session, SSH_OPTIONS_LOG_VERBOSITY, &ssh_verbosity);
+	ssh_options_set(gw->session, SSH_OPTIONS_SSH1, &off);
+
+	if(gw->compression)	{
+		ssh_options_set(gw->session, SSH_OPTIONS_COMPRESSION, &on);
+		ssh_options_set(gw->session, SSH_OPTIONS_COMPRESSION_LEVEL, &gw->c_level);
+	}
+}
+
 struct gw_host *process_section_to_gw(struct ini_section *sec)
 {
 	struct ini_kv_pair *kvp;
@@ -122,6 +156,7 @@ struct gw_host *process_section_to_gw(struct ini_section *sec)
 		}
 		kvp = kvp->next;
 	}
+	create_gw_session(gw);
 
 	return gw;
 }

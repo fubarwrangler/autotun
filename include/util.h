@@ -1,6 +1,8 @@
 #ifndef _UTIL_H__
 #define _UTIL_H__
 
+#include <stdio.h>
+
 enum error_exit_codes {
 	NO_ERROR,
 	MEMORY_ERROR,
@@ -31,6 +33,7 @@ void del_fdmap(struct fd_map *fd);
 extern int _debug;
 extern char *prog_name;
 extern int _verbose;
+extern FILE *debug_stream;
 
 
 #endif /* _UTIL_H__ */

@@ -10,26 +10,30 @@
 
 #include "util.h"
 
+FILE *debug_stream = NULL;
+
 static inline void log_msg_init(void)
 {
 	char p[64];
 	time_t t = time(NULL);
 
 	if(strftime(p, 63, "%m/%d %X", localtime(&t)) > 0)
-		fprintf(stderr, "%s %s: ", p, prog_name);
+		fprintf(debug_stream, "%s %s: ", p, prog_name);
 }
 
 
 void log_exit_perror(int code, const char *fmt, ...)
 {
 	char buf[2048];
+	int our_error;
 	va_list ap;
 
+	our_error = errno;
 	log_msg_init();
 	va_start(ap, fmt);
 	vsnprintf(buf, 2046, fmt, ap);
 	va_end(ap);
-	perror(buf);
+    fprintf(debug_stream, "%s: %s\n", buf, strerror(our_error));
 	exit(code);
 }
 
@@ -38,9 +42,9 @@ void log_exit(int code, const char *fmt, ...)
 	va_list ap;
 	log_msg_init();
 	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
+	vfprintf(debug_stream, fmt, ap);
 	va_end(ap);
-	fputc('\n', stderr);
+	fputc('\n', debug_stream);
 	exit(code);
 }
 
@@ -49,9 +53,9 @@ void log_msg(const char *fmt, ...)
 	va_list ap;
 	log_msg_init();
 	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
+	vfprintf(debug_stream, fmt, ap);
 	va_end(ap);
-	fputc('\n', stderr);
+	fputc('\n', debug_stream);
 }
 
 void debug(const char *fmt, ...)
@@ -60,9 +64,9 @@ void debug(const char *fmt, ...)
 	if(_debug != 0)	{
 		log_msg_init();
 		va_start(ap, fmt);
-		vfprintf(stderr, fmt, ap);
+		vfprintf(debug_stream, fmt, ap);
 		va_end(ap);
-		fputc('\n', stderr);
+		fputc('\n', debug_stream);
 	}
 }
 

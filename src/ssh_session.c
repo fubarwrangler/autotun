@@ -38,6 +38,7 @@ int authenticate_ssh_session(ssh_session session)
 
 void end_ssh_session(ssh_session session)
 {
-	ssh_disconnect(session);
+	if(ssh_is_connected(session))
+		ssh_disconnect(session);
 	ssh_free(session);
 }

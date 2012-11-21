@@ -75,23 +75,6 @@ struct gw_host *create_gw(const char *hostname)
 	return gw;
 }
 
-void create_gw_session(struct gw_host *gw)
-{
-	int ssh_verbosity = (_verbose == 0) ? SSH_LOG_NOLOG : SSH_LOG_FUNCTIONS;
-	int off = 0, on = 1;
-	if((gw->session = ssh_new()) == NULL)
-		log_exit(-1, "ssh_new(): Error creating ssh session");
-
-	ssh_options_set(gw->session, SSH_OPTIONS_HOST, gw->name);
-	ssh_options_set(gw->session, SSH_OPTIONS_LOG_VERBOSITY, &ssh_verbosity);
-	ssh_options_set(gw->session, SSH_OPTIONS_SSH1, &off);
-
-	if(gw->compression)	{
-		ssh_options_set(gw->session, SSH_OPTIONS_COMPRESSION, &on);
-		ssh_options_set(gw->session, SSH_OPTIONS_COMPRESSION_LEVEL, &gw->c_level);
-	}
-}
-
 void connect_gateway(struct gw_host *gw)
 {
 	connect_ssh_session(&gw->session);
@@ -101,7 +84,7 @@ void connect_gateway(struct gw_host *gw)
 void disconnect_gateway(struct gw_host *gw)
 {
 	for(int i = 0; i < gw->n_maps; i++)	{
-		if(gw->pm[i]->n_channels < 0)
+		if(gw->pm[i]->n_channels > 0)
 			log_exit(1, "Error: cannot disconnect gw %s, %d active channels found"
 						"on map %p", gw->name, gw->pm[i]->n_channels, gw->pm[i]);
 		free_map(gw->pm[i]);
@@ -113,6 +96,7 @@ void disconnect_gateway(struct gw_host *gw)
 void destroy_gw(struct gw_host *gw)
 {
 	disconnect_gateway(gw);
+	ssh_free(gw->session);
 
 	del_fdmap(gw->listen_fdmap);
 	del_fdmap(gw->chan_sock_fdmap);
@@ -156,6 +140,8 @@ int main(int argc, char *argv[])
 	struct ini_file *ini;
 	struct ini_section *sec;
 
+	debug_stream = stderr;
+
 	parseopts(argc, argv);
 	setup_signals();
 
@@ -163,24 +149,12 @@ int main(int argc, char *argv[])
 	free(cfgfile);
 
 	gw = process_section_to_gw(sec);
-
-	create_gw_session(gw);
 	connect_gateway(gw);
 
-
-
-/*
-	gw = create_gw("gateway.domain");
-
-	connect_gateway(gw);
-	add_map_to_gw(gw, 8111, "farmweb01.domain.local", 80);
-	add_map_to_gw(gw, 27017, "farmeval02.domain.local", 27017);
-	add_map_to_gw(gw, 2020, "nagios02.domain.local", 80);
-	add_map_to_gw(gw, 5050, "crsdb01.domain.local", 22);
-*/
+	ini_free_data(ini);
 	select_loop(gw);
 
 	destroy_gw(gw);
-	ini_free_data(ini);
+	ssh_finalize();
 	return 0;
 }

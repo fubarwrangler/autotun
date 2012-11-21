@@ -5,7 +5,6 @@
 #include <string.h>
 #include <errno.h>
 
-
 #include "autotun.h"
 #include "port_map.h"
 #include "net.h"
@@ -164,13 +163,13 @@ int select_loop(struct gw_host *gw)
 
 			/* On connect, create+add new channel to map */
 			if(FD_ISSET(i, &listen_set))	{
-				int new_fd;
 
 				if(finish_main_loop)	{
 					FD_CLR(i, &listen_set);
 					FD_CLR(i, &master);
 					close(i);
 				} else {
+					int new_fd;
 					new_fd = new_connection(gw, i, &listen_set, &master);
 					if(new_fd >= 0)	{
 						FD_SET(new_fd, &master);
