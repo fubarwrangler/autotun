@@ -107,7 +107,6 @@ int select_loop(struct gw_host *gw)
 	socket_t maxfd = 0;
 	char buf[CHAN_BUF_SIZE];
 	int i, j, n_chans = 0;
-	float sec_since_activity = 0.0;
 	bool exit_loop = false;
 
 	FD_ZERO(&master);
