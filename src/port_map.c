@@ -129,6 +129,16 @@ void remove_channel_from_map(struct chan_sock *cs)
 	free(cs);
 }
 
+/**
+ * Free the map structure and destroy all connected channels
+ *
+ * The removal of channels is done by remove_channel_from_map(), and then
+ * the listenening file-descriptor is closed and removed from the fd_map
+ *
+ * @pm		the map to destroy
+ * @return	Nothing, any errors encountered are fatal
+ *
+ */
 static void free_map(struct static_port_map *pm)
 {
 	debug("Freeing map %p (listen on %d) %d channels", pm, pm->local_port, pm->n_channels);
@@ -144,6 +154,15 @@ static void free_map(struct static_port_map *pm)
 	free(pm);
 }
 
+/**
+ * Open a libssh forwarding channel for the given channel socket/channel pair
+ *
+ * Try to open a forwarding channel and if it fails, remove the chan_sock
+ * attribute from the pm.
+ *
+ * @cs		the map to destroy
+ * @return	0 if OK, -1 on error
+ */
 int connect_forward_channel(struct chan_sock *cs)
 {
 	struct static_port_map *pm = cs->parent;

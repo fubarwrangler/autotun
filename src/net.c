@@ -11,8 +11,17 @@
 
 #include "util.h"
 
-
-/* Fill @buf with human-readable IP address from sockaddr structure */
+/**
+ * Fill the @buf passed in with a human-readable IP-address of the @sa
+ *
+ * This should work on both IPv4 and IPv6 addresses, and will exit if the
+ * passed-in buffer is not large enough.
+ *
+ * @buf	Buffer to fill with IP-addr string
+ * @len	length of this buffer (must be at least 7)
+ * @sa	The sockaddr struct to read from
+ * @return	Nothing
+ */
 static void get_ipaddr(char *buf, size_t len, struct sockaddr *sa)
 {
     const char *res;
@@ -40,7 +49,15 @@ static void get_ipaddr(char *buf, size_t len, struct sockaddr *sa)
         log_exit_perror(-1, "inet_ntop");
 }
 
-/* NOTE: Much taken from the ridiculously useful http://beej.us/guide/bgnet/ */
+/**
+ * Create a listening socket bound to interface given by @node
+ *
+ * @local_port	The listening socket with a pending connection (via select())
+ * @node		Nodename to bind to (localhost)
+ * @return		The newly created file-descriptor
+ *
+ * NOTE: Much taken from the ridiculously useful http://beej.us/guide/bgnet/
+ */
 int create_listen_socket(uint32_t local_port, const char *node)
 {
 	int sockfd;
@@ -81,11 +98,10 @@ int create_listen_socket(uint32_t local_port, const char *node)
 		break;
 	}
 
+	freeaddrinfo(servinfo);
+
 	if (p == NULL)
 		log_exit(2, "Failed to bind an address!");
-
-
-	freeaddrinfo(servinfo);
 
 	if (listen(sockfd, 10) < 0)
 		log_exit_perror(1, "listen new fd=%d", sockfd);
@@ -93,6 +109,12 @@ int create_listen_socket(uint32_t local_port, const char *node)
 	return sockfd;
 }
 
+/**
+ * Small wrapper around accept() for user-connected sockets
+ *
+ * @listenfd	The listening socket with a pending connection (via select())
+ * @return		The newly created file-descriptor
+ */
 int accept_connection(int listenfd)
 {
 	struct sockaddr_storage their_addr;

@@ -24,7 +24,16 @@ static void process_global_config(struct ini_section *sec)
 	}
 }
 
-
+/**
+ * Read the configuration file and mark the first gateway section
+ *
+ * Parse the config-file and filter any options in the first anon-section
+ * befoe leaving the first proper section in @first_sec.
+ *
+ * @filename	The config-file to read
+ * @first_sec	Place to put pointer to first section corresponding to a gw
+ * @returns		A pointer to the full ini-file structure
+ */
 struct ini_file *
 read_configfile(const char *filename, struct ini_section **first_sec)
 {
@@ -94,7 +103,10 @@ static void parse_host_line(char *str, char **host, uint32_t *port)
 		log_exit(1, "Error: superfluous data found in host line: %s", str);
 }
 
-
+/**
+ * Parse the gateway-config section to extract all gw-wide options like
+ * compression and others and populate the appropriate fields of @gw.
+ */
 static void update_gw_config(struct ini_section *sec, struct gw_host *gw)
 {
 	int err;
@@ -115,7 +127,9 @@ static void update_gw_config(struct ini_section *sec, struct gw_host *gw)
 		debug("WARNING: strict host key checking DISABLED!");
 }
 
-
+/**
+ * Create a new ssh_session based on the gw structure's config-fields
+ */
 static void create_gw_session(struct gw_host *gw)
 {
 	int ssh_verbosity = (_verbose == 0) ? SSH_LOG_NOLOG : SSH_LOG_FUNCTIONS;
@@ -133,6 +147,12 @@ static void create_gw_session(struct gw_host *gw)
 	}
 }
 
+/**
+ * Create a gw_host struct from information held in the config-file section
+ *
+ * @sec     The ini-file section to parse
+ * @returns A newly-created, empty gw_host struct
+ */
 struct gw_host *process_section_to_gw(struct ini_section *sec)
 {
 	struct ini_kv_pair *kvp;

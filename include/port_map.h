@@ -22,7 +22,7 @@ struct static_port_map {
 };
 
 void add_map_to_gw(struct gw_host *gw, uint32_t local_port,
-				   char *host, uint32_t remote_port) const;
+				   char *host, uint32_t remote_port);
 struct chan_sock *
 add_channel_to_map(struct static_port_map *pm,
 				   ssh_channel channel,
