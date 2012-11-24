@@ -208,5 +208,4 @@ void remove_map_from_gw(struct static_port_map *map)
 		gw->n_maps--;
 		free_map(map);
 	}
-	return 0;
 }

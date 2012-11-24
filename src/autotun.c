@@ -98,8 +98,11 @@ void destroy_gw(struct gw_host *gw)
 
 	del_fdmap(gw->listen_fdmap);
 	del_fdmap(gw->chan_sock_fdmap);
-	free(gw->pm);
+	if(gw->proxy_command != NULL)
+		free(gw->proxy_command);
+	free(gw->compression);
 	free(gw->name);
+	free(gw->pm);
 	free(gw);
 }
 
