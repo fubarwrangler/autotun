@@ -36,10 +36,14 @@ get_cs_for_channel(struct gw_host *gw, ssh_channel ch)
 	return NULL;
 }
 
+/**
+ * Create a new ssh_channel for a new incomming connection on @listenfd
+ *
+ * @gw	gateway struct
+ * @listenfd	The listening file-descriptor with a pending connection
+*/
 int new_connection(struct gw_host *gw,
-				   int listenfd,
-				   fd_set *listen_set,
-				   fd_set *master_set)
+				   int listenfd)
 {
 	struct static_port_map *pm;
 	struct chan_sock *cs;
@@ -60,11 +64,7 @@ int new_connection(struct gw_host *gw,
 
 	if(connect_forward_channel(cs) < 0)	{
 		log_msg("Removing listening port %d because bad connection", pm->local_port);
-
 		remove_map_from_gw(pm);
-		FD_CLR(listenfd, listen_set);
-		FD_CLR(listenfd, master_set);
-
 		return -1;
 	}
 	return new_fd;
@@ -169,11 +169,14 @@ int select_loop(struct gw_host *gw)
 					close(i);
 				} else {
 					int new_fd;
-					new_fd = new_connection(gw, i, &listen_set, &master);
+					new_fd = new_connection(gw, i);
 					if(new_fd >= 0)	{
 						FD_SET(new_fd, &master);
 						if(new_fd > maxfd)
 							maxfd = new_fd;
+					} else {
+						FD_CLR(i, &listen_set);
+						FD_CLR(i, &master);
 					}
 				}
 				continue;
