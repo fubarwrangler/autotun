@@ -20,11 +20,6 @@ struct gw_host {
 	struct fd_map *chan_sock_fdmap;
 	struct static_port_map **pm;
 	struct fd_map *listen_fdmap;
-	char *compression;
-	int c_level;
-	bool close_on_failure;
-	bool strict_host_key;
-	char *proxy_command;
 };
 
 

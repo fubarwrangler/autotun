@@ -104,46 +104,16 @@ static void parse_host_line(char *str, char **host, uint32_t *port)
 }
 
 /**
- * Parse the gateway-config section to extract all gw-wide options like
- * compression and others and populate the appropriate fields of @gw.
+ * Create a new ssh_session and set config based on the ini-section passed
  */
-static void update_gw_config(struct ini_section *sec, struct gw_host *gw)
-{
-	int err;
-	bool compression;
-
-	/* Zero / false is default */
-	compression = ini_get_section_bool(sec, "compression", &err);
-	gw->c_level = ini_get_section_int(sec, "compression_level", &err);
-	if(compression && err != INI_OK)
-		gw->c_level = 5;
-	else if(!compression && err == INI_OK)
-		log_exit(2, "CFG Error: cannot set compression_level without compression");
-	gw->compression = safestrdup((compression) ? "yes" : "no",
-								 "compression algo str");
-	if(compression)
-		debug("Compression enabled, level %d", gw->c_level);
-
-
-	gw->strict_host_key = ini_get_section_bool(sec, "strict_host_key", &err);
-	if(err != INI_OK)	gw->strict_host_key = true;
-	if(!gw->strict_host_key)
-		debug("WARNING: strict host key checking DISABLED!");
-
-	gw->proxy_command = ini_get_section_value(sec, "proxy_command");
-	if(gw->proxy_command)	{
-		gw->proxy_command = safestrdup(gw->proxy_command, "dup proxycommand");
-		debug("INFO: Proxy command set: '%s'", gw->proxy_command);
-	}
-}
-
-/**
- * Create a new ssh_session based on the gw structure's config-fields
- */
-static void create_gw_session(struct gw_host *gw)
+static void create_gw_session_config(struct ini_section *sec, struct gw_host *gw)
 {
 	int ssh_verbosity = (_verbose == 0) ? SSH_LOG_NOLOG : SSH_LOG_FUNCTIONS;
-	int off = 0, on = 1;
+	int err, off = 0, on = 1;
+	char *str;
+	bool compression;
+	int c_level;
+
 	if((gw->session = ssh_new()) == NULL)
 		log_exit(-1, "ssh_new(): Error creating ssh session");
 
@@ -151,12 +121,29 @@ static void create_gw_session(struct gw_host *gw)
 	ssh_options_set(gw->session, SSH_OPTIONS_LOG_VERBOSITY, &ssh_verbosity);
 	ssh_options_set(gw->session, SSH_OPTIONS_SSH1, &off);
 
-	if(gw->compression)	{
-		ssh_options_set(gw->session, SSH_OPTIONS_COMPRESSION, gw->compression);
-		ssh_options_set(gw->session, SSH_OPTIONS_COMPRESSION_LEVEL, &gw->c_level);
+	/* Zero / false is default */
+	compression = ini_get_section_bool(sec, "compression", &err);
+	c_level = ini_get_section_int(sec, "compression_level", &err);
+	if(compression)	{
+		if(c_level <= 0 || err != INI_OK)
+			c_level = 5;
+		debug("Compression enabled, level %d", c_level);
+
+		ssh_options_set(gw->session, SSH_OPTIONS_COMPRESSION, "on");
+		ssh_options_set(gw->session, SSH_OPTIONS_COMPRESSION_LEVEL, &c_level);
+	} else if(c_level != 0 && !compression)	{
+		log_exit(2, "Error: cannot set compression-level if compression is not set");
 	}
-	if(gw->proxy_command)
-		ssh_options_set(gw->session, SSH_OPTIONS_PROXYCOMMAND, gw->proxy_command);
+
+	if(!ini_get_section_bool(sec, "strict_host_key", &err) && err == INI_OK)	{
+		debug("WARNING: strict host key checking DISABLED!");
+		ssh_options_set(gw->session, SSH_OPTIONS_STRICTHOSTKEYCHECK, &off);
+	} else {
+		ssh_options_set(gw->session, SSH_OPTIONS_STRICTHOSTKEYCHECK, &on);
+	}
+
+	if((str = ini_get_section_value(sec, "proxy_command")) != NULL)
+		ssh_options_set(gw->session, SSH_OPTIONS_PROXYCOMMAND, str);
 }
 
 /**
@@ -173,7 +160,7 @@ struct gw_host *process_section_to_gw(struct ini_section *sec)
 	assert(sec != NULL && sec->items != NULL);
 
 	gw = create_gw(sec->name);
-	update_gw_config(sec, gw);
+	create_gw_session_config(sec, gw);
 
 	kvp = sec->items;
 	while(kvp)	{
@@ -188,7 +175,6 @@ struct gw_host *process_section_to_gw(struct ini_section *sec)
 		}
 		kvp = kvp->next;
 	}
-	create_gw_session(gw);
 
 	return gw;
 }

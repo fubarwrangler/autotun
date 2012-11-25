@@ -98,9 +98,6 @@ void destroy_gw(struct gw_host *gw)
 
 	del_fdmap(gw->listen_fdmap);
 	del_fdmap(gw->chan_sock_fdmap);
-	if(gw->proxy_command != NULL)
-		free(gw->proxy_command);
-	free(gw->compression);
 	free(gw->name);
 	free(gw->pm);
 	free(gw);
@@ -147,12 +144,13 @@ int main(int argc, char *argv[])
 	setup_signals();
 
 	ini = read_configfile(cfgfile, &sec);
-	free(cfgfile);
 
 	gw = process_section_to_gw(sec);
 	connect_gateway(gw);
 
 	ini_free_data(ini);
+	free(cfgfile);
+
 	select_loop(gw);
 
 	destroy_gw(gw);

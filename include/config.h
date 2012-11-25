@@ -3,6 +3,8 @@
 
 #include <iniread.h>
 
+#include "autotun.h"
+
 struct ini_file *
 read_configfile(const char *filename, struct ini_section **sec);
 struct gw_host *process_section_to_gw(struct ini_section *sec);
