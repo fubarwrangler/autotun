@@ -103,6 +103,8 @@ void destroy_gw(struct gw_host *gw)
 	free(gw);
 }
 
+char *default_cfg = ".autotunrc";
+
 void parseopts(int argc, char *argv[])
 {
 	int c;
@@ -126,9 +128,8 @@ void parseopts(int argc, char *argv[])
 		char *home = getenv("HOME");
 		if(home == NULL)
 			log_exit(3, "Error: $HOME not set for default config file");
-		cfgfile = safemalloc(strlen(home) + 16, "malloc cfgfile");
-		strcpy(cfgfile, home);
-		strcat(cfgfile, "/.autotunrc");
+		cfgfile = safemalloc(strlen(home) + strlen(default_cfg) + 3, "malloc cfgfile");
+		sprintf(cfgfile, "%s/%s", home, default_cfg);
 	}
 }
 

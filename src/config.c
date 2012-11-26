@@ -105,6 +105,10 @@ static void parse_host_line(char *str, char **host, uint32_t *port)
 
 /**
  * Create a new ssh_session and set config based on the ini-section passed
+ *
+ * @sec	The ini-section containing pertinant config-information
+ * @gw	gw_host struct to activate a new ssh_session for
+ * @return None, any errors here or mis-configuration is considered fatal
  */
 static void create_gw_session_config(struct ini_section *sec, struct gw_host *gw)
 {

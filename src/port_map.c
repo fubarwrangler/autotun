@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -148,7 +149,8 @@ static void free_map(struct static_port_map *pm)
 
 	remove_fdmap(pm->parent->listen_fdmap, pm->listen_fd);
 	if(close(pm->listen_fd) < 0)
-		log_exit_perror(-1, "Error closing listening fd=%d", pm->listen_fd);
+		log_msg("Error closing listening fd=%d: %s", pm->listen_fd,
+				strerror(errno));
 	free(pm->ch);
 	free(pm->remote_host);
 	free(pm);
