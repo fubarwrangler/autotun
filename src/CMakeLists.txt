@@ -17,3 +17,6 @@ MESSAGE( STATUS "LIBINIREAD_LIBRARIES: ${LIBINIREAD_LIBRARIES}")
 
 TARGET_LINK_LIBRARIES( autotun "${LIBSSH_LIBRARIES}" "${LIBINIREAD_LIBRARIES}" )
 
+include_directories(pflock)
+
+add_subdirectory(pflock)
