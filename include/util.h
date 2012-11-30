@@ -2,6 +2,7 @@
 #define _UTIL_H__
 
 #include <stdio.h>
+#include <stdlib.h>
 
 enum error_exit_codes {
 	NO_ERROR,
