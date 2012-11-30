@@ -15,6 +15,7 @@ typedef void (*pflock_eventhandler)(pid_t, int, void *);
 #define PF_RUNNING 1
 #define PF_EXITED  2
 #define PF_KILLED  3
+#define PF_NOCHILD 4
 
 
 struct pflock_proc {
@@ -50,6 +51,19 @@ struct pflock *pflock_new(pflock_eventhandler exit, pflock_eventhandler kill)
 	pf->handle_exit = exit;
 	pf->handle_kill = kill;
 	return pf;
+}
+
+static int pflock_remove(struct pflock *pf, int idx)
+{
+	struct pflock_proc *proc = pf->flock[i];
+
+	if(proc->status == PF_RUNNING)	{
+		log_msg("Error: tried to remove running process from flock: %d", proc->pid);
+		return -1;
+	}
+	while(idx++ < pf->n_procs - 1)
+		pf->flock[i] = pf->flock[i + 1]
+
 }
 
 int pflock_fork(struct pflock *pf, void *assoc_data)
@@ -103,18 +117,18 @@ int pflock_wait(struct pflock *pf)
 			p->status = PF_EXITED;
 			if(pf->handle_exit != NULL)
 				pf->handle_exit(p->pid, sin.si_status, p->proc_data);
-			break;
+			return PF_EXITED;
 		case CLD_KILLED:
 		case CLD_DUMPED:
 			p->status = PF_KILLED;
 			if(pf->handle_kill != NULL)
 				pf->handle_kill(p->pid, sin.si_status, p->proc_data);
-			break;
+			return PF_KILLED;
 		default:
-
+			log_msg("Unknown code for waitid(): %d", sin.si_code);
 			break;
 	}
-	return 0;
+	return -1;
 }
 
 int main(int argc, char *argv[])
@@ -124,6 +138,9 @@ int main(int argc, char *argv[])
 	debug_stream = stdout;
 
 	pf = pflock_new(&handle_exit, &handle_kill);
+
+	for(int x = 0; x < 10; x++)	{
+
 
 	if(pflock_fork(pf, NULL) == 0)	{
 		prog_name = "pflock-child1";
