@@ -9,6 +9,7 @@
 #include <stddef.h>
 
 #include "autotun.h"
+#include "pflock.h"
 #include "config.h"
 #include "port_map.h"
 #include "ssh.h"
@@ -103,6 +104,15 @@ void destroy_gw(struct gw_host *gw)
 	free(gw);
 }
 
+int run_gateway(struct gw_host *gw)
+{
+	debug("Entering select loop");
+	select_loop(gw);
+	destroy_gw(gw);
+	ssh_finalize();
+	return 0;
+}
+
 char *default_cfg = ".autotunrc";
 
 void parseopts(int argc, char *argv[])
@@ -133,11 +143,22 @@ void parseopts(int argc, char *argv[])
 	}
 }
 
+struct pflock *proc_per_gw;
+
+void exit_cleanup(void)
+{
+	debug("atexit() register: send SIGTERM to pflock");
+	if(proc_per_gw != NULL && pflock_get_numrun(proc_per_gw) > 0)
+		pflock_sendall(proc_per_gw, SIGTERM);
+}
+
 int main(int argc, char *argv[])
 {
 	struct gw_host *gw;
 	struct ini_file *ini;
 	struct ini_section *sec;
+	bool child = false;
+	int idx;
 
 	debug_stream = stderr;
 
@@ -146,15 +167,45 @@ int main(int argc, char *argv[])
 
 	ini = read_configfile(cfgfile, &sec);
 
-	gw = process_section_to_gw(sec);
-	connect_gateway(gw);
+	proc_per_gw = pflock_new(NULL, NULL);
+
+	atexit(exit_cleanup);
+
+	while(sec)	{
+		gw = process_section_to_gw(sec);
+		connect_gateway(gw);
+		if(pflock_fork_data(proc_per_gw, gw) == NULL)	{
+			prog_name = safemalloc(64, "new progname");
+			snprintf(prog_name, 63, "autotun-%s", gw->name);
+			debug("New child process pid %d", getpid());
+			child = true;
+			break;
+		}
+		sec = sec->next;
+	}
 
 	ini_free_data(ini);
 	free(cfgfile);
 
-	select_loop(gw);
+	if(child)	{
+		return run_gateway(gw);
+	}
 
-	destroy_gw(gw);
-	ssh_finalize();
+	do	{
+		idx = pflock_wait_remove(proc_per_gw, PF_KILLED);
+		debug("pflock_wait(): returned %d%s", idx,
+			  (idx == PFW_REMOVED) ? ": Removed proc from flock" : "");
+		if(finish_main_loop != 0)	{
+			debug("Sending SIGINT to all");
+			pflock_sendall(proc_per_gw, SIGINT);
+			finish_main_loop = 0;
+		}
+
+
+	} while(idx != PFW_NOCHILD && idx != PFW_ERROR && !hard_shutdown);
+
+	if(pflock_get_numrun(proc_per_gw) > 0)
+		pflock_sendall(proc_per_gw, SIGTERM);
+
 	return 0;
 }

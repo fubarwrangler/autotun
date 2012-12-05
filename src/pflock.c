@@ -1,3 +1,5 @@
+#define _XOPEN_SOURCE 700
+
 #include <stdio.h>
 #include <stdint.h>
 #include <signal.h>
@@ -7,74 +9,9 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#include "pflock.h"
 #include "util.h"
 
-char *prog_name = "pflock";
-int _debug=1;
-
-typedef void (*pflock_eventhandler)(pid_t, int);
-
-#define PF_RUNNING 1
-#define PF_EXITED  2
-#define PF_KILLED  4
-
-#define PFW_ERROR   -1
-#define PFW_CHAVAIL -2
-#define PFW_NOCHILD -3
-#define PFW_NONBLK  -4
-#define PFW_AGAIN   -5
-#define PFW_REMOVED -6
-
-struct pflock_proc {
-	pid_t pid;
-	int status;
-	void *handle;
-	struct pflock *parent;
-	pflock_eventhandler local_evh[2];
-};
-
-
-struct pflock {
-	int n_procs;
-	pid_t pgid;
-	struct pflock_proc **flock;
-	pflock_eventhandler evh[2];
-};
-
-void handle_exit(pid_t pid, int code)
-{
-	log_msg("Exit happened on pid %d: code %d", pid, code);
-}
-void handle_kill(pid_t pid, int signal)
-{
-	log_msg("Kill happened on pid %d: signal was %d", pid, signal);
-}
-
-volatile sig_atomic_t proc_sig = 0;
-
-static void sig_handler(int signum)
-{
-	debug("Caught signal %d", signum);
-	proc_sig = signum;
-}
-
-/* Setup signal handler */
-static void setup_signals(void)
-{
-    struct sigaction sigterm_action;
-    sigset_t self;
-
-    sigemptyset(&self);
-    sigaddset(&self, SIGINT);
-    sigaddset(&self, SIGTERM);
-    sigterm_action.sa_handler = sig_handler;
-    sigterm_action.sa_mask = self;
-    sigterm_action.sa_flags = 0;
-
-
-    sigaction(SIGINT, &sigterm_action, NULL);
-    sigaction(SIGTERM, &sigterm_action, NULL);
-}
 
 struct pflock *pflock_new(pflock_eventhandler exit, pflock_eventhandler kill)
 {
@@ -87,7 +24,7 @@ struct pflock *pflock_new(pflock_eventhandler exit, pflock_eventhandler kill)
 	return pf;
 }
 
-static int pflock_get_numrun(struct pflock *pf)
+int pflock_get_numrun(struct pflock *pf)
 {
 	int n_run = 0;
 
@@ -99,7 +36,7 @@ static int pflock_get_numrun(struct pflock *pf)
 	return n_run;
 }
 
-static int pflock_remove(struct pflock_proc *proc)
+int pflock_remove(struct pflock_proc *proc)
 {
 	struct pflock *pf = proc->parent;
 	int idx;
@@ -206,7 +143,7 @@ struct pflock_proc *pflock_fork(struct pflock *pf)
 	return pflock_fork_data_events(pf, NULL, NULL, NULL);
 }
 
-static int pflock_poll(struct pflock *pf)
+int pflock_poll(struct pflock *pf)
 {
 	siginfo_t sin;
 	int rv;
@@ -323,6 +260,48 @@ int pflock_destroy(struct pflock *pf)
 	return 0;
 }
 
+#ifdef PF_TEST
+
+
+char *prog_name = "pflock";
+int _debug=1;
+
+void handle_exit(pid_t pid, int code)
+{
+	log_msg("Exit happened on pid %d: code %d", pid, code);
+}
+void handle_kill(pid_t pid, int signal)
+{
+	log_msg("Kill happened on pid %d: signal was %d", pid, signal);
+}
+
+volatile sig_atomic_t proc_sig = 0;
+
+static void sig_handler(int signum)
+{
+	debug("Caught signal %d", signum);
+	proc_sig = signum;
+}
+
+/* Setup signal handler */
+static void setup_signals(void)
+{
+    struct sigaction sigterm_action;
+    sigset_t self;
+
+    sigemptyset(&self);
+    sigaddset(&self, SIGINT);
+    sigaddset(&self, SIGTERM);
+    sigterm_action.sa_handler = sig_handler;
+    sigterm_action.sa_mask = self;
+    sigterm_action.sa_flags = 0;
+
+
+    sigaction(SIGINT, &sigterm_action, NULL);
+    sigaction(SIGTERM, &sigterm_action, NULL);
+}
+
+
 int main(int argc, char *argv[])
 {
 	char buf[64];
@@ -366,3 +345,5 @@ int main(int argc, char *argv[])
 
 	return 0;
 }
+
+#endif
