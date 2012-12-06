@@ -104,7 +104,7 @@ void remove_channel_from_map(struct chan_sock *cs)
 	int i;
 
 	if(cs->parent == NULL)
-		log_exit(1, "Corrupt chan_sock parent %p->parent NULL", cs);
+		log_exit(FATAL_ERROR, "Corrupt chan_sock parent %p->parent NULL", cs);
 
 	for(i = 0; i < pm->n_channels; i++)	{
 		if(pm->ch[i] == cs)	{
@@ -200,7 +200,8 @@ void remove_map_from_gw(struct static_port_map *map)
 			break;
 
 	if(i == gw->n_maps)
-		log_exit(1, "Error: map %p not found in gw->pm (%p)", map, gw->pm);
+		log_exit(FATAL_ERROR, "Error: map %p not found in gw->pm (%p)",
+				 map, gw->pm);
 
 	if(gw->n_maps >= 1)	{
 		while(i < gw->n_maps - 1)	{

@@ -55,10 +55,10 @@ int new_connection(struct gw_host *gw,
 	debug("is listen fd, new conn accepted(%d): fd=%d", listenfd, new_fd);
 
 	if((channel = ssh_channel_new(gw->session)) == NULL)
-		log_exit(1, "Error creating new channel for connection");
+		log_exit(CONNECTION_RETRY, "Error creating new channel for connection");
 
 	if((pm = get_map_for_listening(gw, listenfd)) == NULL)
-		log_exit(1, "Error: fd %d map not found", listenfd);
+		log_exit(FATAL_ERROR, "Error: fd %d map not found", listenfd);
 
 	cs = add_channel_to_map(pm, channel, new_fd);
 
@@ -184,7 +184,7 @@ int select_loop(struct gw_host *gw)
 
 			/* Otherwise read data from socket and write to channel */
 			if((cs = get_chan_for_fd(gw, i)) == NULL)
-				log_exit(1, "Error: fd %d channel not found", i);
+				log_exit(FATAL_ERROR, "Error: fd %d channel not found", i);
 
 			n_read = recv(cs->sock_fd, buf, sizeof(buf), 0);
 
@@ -251,7 +251,7 @@ int select_loop(struct gw_host *gw)
 				}
 			} else if (n_read == 0)	{
 				/* close socket */
-				log_exit(-1, "BUG!: Zero bytes read from channel %p", ch);
+				log_exit(FATAL_ERROR, "BUG!: Zero bytes read from channel %p", ch);
 			} else {
 				/* error case */
 				log_msg("Error with ssh_channel_read on channel %p", ch);

@@ -46,12 +46,12 @@ read_configfile(const char *filename, struct ini_section **first_sec)
 			break;
 		default:
 			log_msg("Error reading config-file '%s'", filename);
-			log_exit(-1, "%s: %s", ini_error_string(rv), strerror(errno));
+			log_exit(CONFIG_ERROR, "%s: %s", ini_error_string(rv), strerror(errno));
 			break;
 	}
 
 	if(ini->first == NULL)
-		log_exit(1, "Configuration file is not valid");
+		log_exit(CONFIG_ERROR, "Configuration file is not valid");
 
 	if(strcmp(ini->first->name, "") == 0)	{
 		process_global_config(ini->first);
@@ -60,7 +60,7 @@ read_configfile(const char *filename, struct ini_section **first_sec)
 		*first_sec = ini->first;
 
 	if(*first_sec == NULL)
-		log_exit(-1, "Error, no valid configuration sections found");
+		log_exit(CONFIG_ERROR, "Error, no valid configuration sections found");
 
 	return ini;
 }
@@ -73,10 +73,10 @@ static uint32_t get_port(char *str)
 	errno = 0;
 	n = strtoul(str, &p, 10);
 	if(errno != 0 || *p != '\0')
-		log_exit(1, "Error: invalid integer port found: %s", str);
+		log_exit(CONFIG_ERROR, "Error: invalid integer port found: %s", str);
 
 	if(n > 65536)
-		log_exit(1, "Error: integer port out of range (%lu) > 2^16", n);
+		log_exit(CONFIG_ERROR, "Error: integer port out of range (%lu) > 2^16", n);
 
 	return (uint16_t)n;
 }
@@ -94,13 +94,13 @@ static void parse_host_line(char *str, char **host, uint32_t *port)
 	char *p;
 
 	if((p = strtok(str, ":")) == NULL)
-		log_exit(1, "Error: invalid host line found: %s", str);
+		log_exit(CONFIG_ERROR, "Error: invalid host line found: %s", str);
 	*host = p;
 	if((p = strtok(NULL, ":")) == NULL)
-		log_exit(1, "Error: port not found: %s", str);
+		log_exit(CONFIG_ERROR, "Error: port not found: %s", str);
 	*port = get_port(p);
 	if(strtok(NULL, ":") != NULL)
-		log_exit(1, "Error: superfluous data found in host line: %s", str);
+		log_exit(CONFIG_ERROR, "Error: superfluous data found in host line: %s", str);
 }
 
 /**
@@ -119,7 +119,7 @@ static void create_gw_session_config(struct ini_section *sec, struct gw_host *gw
 	int c_level;
 
 	if((gw->session = ssh_new()) == NULL)
-		log_exit(-1, "ssh_new(): Error creating ssh session");
+		log_exit(CONNECTION_ERROR, "ssh_new(): Error creating ssh session");
 
 	ssh_options_set(gw->session, SSH_OPTIONS_HOST, gw->name);
 	ssh_options_set(gw->session, SSH_OPTIONS_LOG_VERBOSITY, &ssh_verbosity);
@@ -136,7 +136,7 @@ static void create_gw_session_config(struct ini_section *sec, struct gw_host *gw
 		ssh_options_set(gw->session, SSH_OPTIONS_COMPRESSION, "on");
 		ssh_options_set(gw->session, SSH_OPTIONS_COMPRESSION_LEVEL, &c_level);
 	} else if(c_level != 0 && !compression)	{
-		log_exit(2, "Error: cannot set compression-level if compression is not set");
+		log_exit(CONFIG_ERROR, "Error: cannot set compression-level if compression is not set");
 	}
 
 	if(!ini_get_section_bool(sec, "strict_host_key", &err) && err == INI_OK)	{

@@ -2,6 +2,9 @@
 #define _AUTOTUN_H__
 
 #include <stdbool.h>
+#include <time.h>
+#include <signal.h>
+#include <errno.h>
 
 #include "util.h"
 #include <libssh/libssh.h>

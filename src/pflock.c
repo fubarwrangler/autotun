@@ -92,7 +92,7 @@ pflock_fork_data_events(struct pflock *pf,
 
 	switch(pid = fork())	{
 		case -1:
-			log_exit_perror(-1, "fork()");
+			log_exit_perror(FATAL_ERROR, "fork()");
 		case 0:
 			if(n_run == 0)
 				setpgid(0, 0);
@@ -173,7 +173,7 @@ int pflock_wait(struct pflock *pf)
 		if(errno == EINTR)
 			return PFW_AGAIN;
 		else
-			log_exit_perror(-1, "waitid()");
+			log_exit_perror(FATAL_ERROR, "waitid()");
 	}
 
 	for(i = 0; i < pf->n_procs; i++)	{

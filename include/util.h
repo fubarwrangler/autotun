@@ -8,6 +8,10 @@ enum error_exit_codes {
 	NO_ERROR,
 	MEMORY_ERROR,
 	CONFIG_ERROR,
+	CONNECTION_ERROR,
+	CONNECTION_RETRY,
+	SOCKET_ERROR,
+	FATAL_ERROR,
 };
 
 void log_msg(const char *fmt, ...);

@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -106,7 +105,34 @@ void destroy_gw(struct gw_host *gw)
 
 int run_gateway(struct gw_host *gw)
 {
-	debug("Entering select loop");
+	siginfo_t si;
+	struct timespec tm = {3, 0};
+	sigset_t ss;
+	int code = 0;
+
+
+    sigemptyset(&ss);
+    sigaddset(&ss, SIGUSR1);
+    sigaddset(&ss, SIGTERM);
+
+	debug("Waiting for go/no-go signal");
+
+	do {
+		if((code = sigtimedwait(&ss, &si, &tm)) < 0)	{
+			if(errno == EINTR)
+				continue;
+			else if(errno == EAGAIN)
+				log_exit(NO_ERROR, "Signal not recieved in timeout, parent dead?");
+		}
+	} while(code < 0);
+
+	if(si.si_pid != getppid())
+		log_exit(FATAL_ERROR, "Non parent-proc %d sent signal %d", si.si_pid, code);
+
+	if(code == SIGTERM)
+		log_exit(NO_ERROR, "Cancel signal recieved, exiting cleanly");
+
+	debug("Go signal recieved, entering select loop");
 	select_loop(gw);
 	destroy_gw(gw);
 	ssh_finalize();
@@ -169,7 +195,6 @@ int main(int argc, char *argv[])
 
 	proc_per_gw = pflock_new(NULL, NULL);
 
-	atexit(exit_cleanup);
 
 	while(sec)	{
 		gw = process_section_to_gw(sec);
@@ -190,6 +215,9 @@ int main(int argc, char *argv[])
 	if(child)	{
 		return run_gateway(gw);
 	}
+
+	atexit(exit_cleanup);
+	pflock_sendall(proc_per_gw, SIGUSR1);
 
 	do	{
 		idx = pflock_wait_remove(proc_per_gw, PF_KILLED);

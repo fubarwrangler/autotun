@@ -121,8 +121,9 @@ int add_fdmap(struct fd_map *m, int i, void *p)
 
 void *get_fdmap(struct fd_map *m, int idx)
 {
-	if(m->len <= idx)
-		log_exit(1, "Error: fdmap asked for %d, only %d long", idx, m->len);
+	if(idx >= m->len)
+		log_exit(FATAL_ERROR,
+				 "Error: fdmap asked for %d, only %d long", idx, m->len);
 	return m->ptrs[idx];
 }
 

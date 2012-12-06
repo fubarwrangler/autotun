@@ -46,7 +46,7 @@ static void get_ipaddr(char *buf, size_t len, struct sockaddr *sa)
             break;
     }
     if(res == NULL)
-        log_exit_perror(-1, "inet_ntop");
+        log_exit_perror(FATAL_ERROR, "inet_ntop");
 }
 
 /**
@@ -74,7 +74,7 @@ int create_listen_socket(uint32_t local_port, const char *node)
 	hints.ai_flags = AI_PASSIVE;
 
 	if ((rv = getaddrinfo(node, pstr, &hints, &servinfo)) != 0)
-		log_exit(-1, "getaddrinfo: %s", gai_strerror(rv));
+		log_exit(SOCKET_ERROR, "getaddrinfo: %s", gai_strerror(rv));
 
 	/* loop through all the results and bind to the first we can */
 	for(p = servinfo; p != NULL; p = p->ai_next) {
@@ -86,7 +86,7 @@ int create_listen_socket(uint32_t local_port, const char *node)
 		}
 
 		if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1)
-			log_exit_perror(1, "setsockopt for listen socket");
+			log_exit_perror(SOCKET_ERROR, "setsockopt for listen socket");
 
 		get_ipaddr(pstr, sizeof(pstr), p->ai_addr);
 		if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
@@ -101,10 +101,10 @@ int create_listen_socket(uint32_t local_port, const char *node)
 	freeaddrinfo(servinfo);
 
 	if (p == NULL)
-		log_exit(2, "Failed to bind an address!");
+		log_exit(SOCKET_ERROR, "Failed to bind an address!");
 
 	if (listen(sockfd, 10) < 0)
-		log_exit_perror(1, "listen new fd=%d", sockfd);
+		log_exit_perror(SOCKET_ERROR, "listen new fd=%d", sockfd);
 
 	return sockfd;
 }
@@ -124,7 +124,7 @@ int accept_connection(int listenfd)
     addr_size = sizeof their_addr;
 	new_fd = accept(listenfd, (struct sockaddr *)&their_addr, &addr_size);
 	if(new_fd < 0)
-		log_exit_perror(1, "accept on socket fd=%d", listenfd);
+		log_exit_perror(SOCKET_ERROR, "accept on socket fd=%d", listenfd);
 
 	return new_fd;
 }
