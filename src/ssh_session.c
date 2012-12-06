@@ -3,7 +3,7 @@
 
 #include "ssh.h"
 
-int connect_ssh_session(ssh_session *session)
+void connect_ssh_session(ssh_session *session)
 {
 	if(ssh_connect(*session) != SSH_OK)
 		log_exit(CONNECTION_ERROR, "Error connecting to host: %s",

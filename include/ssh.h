@@ -10,7 +10,7 @@ struct session_opts {
 	int c_level;
 };
 
-int connect_ssh_session(ssh_session *session);
+void connect_ssh_session();
 void authenticate_ssh_session(ssh_session session);
 void end_ssh_session(ssh_session session);
 

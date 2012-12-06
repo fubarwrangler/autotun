@@ -220,6 +220,7 @@ int main(int argc, char *argv[])
 			prog_name = safemalloc(64, "new progname");
 			snprintf(prog_name, 63, "autotun-%s", sec->name);
 			debug("New child process pid %d", getpid());
+
 			child = true;
 			break;
 		}
@@ -248,8 +249,6 @@ int main(int argc, char *argv[])
 			pflock_sendall(proc_per_gw, SIGINT);
 			finish_main_loop = 0;
 		}
-
-
 	} while(idx != PFW_NOCHILD && idx != PFW_ERROR && !hard_shutdown);
 
 	if(pflock_get_numrun(proc_per_gw) > 0)

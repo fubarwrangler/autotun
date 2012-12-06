@@ -327,7 +327,7 @@ int main(int argc, char *argv[])
 	log_msg("Parent proc! %d - %d", getpid(), getpgid(0));
 
 	do	{
-		pfproc p;
+		//pfproc p;
 		idx = pflock_wait_remove(pf, PF_EXITED);
 		debug("pflock_wait(): returned %d%s", idx,
 			  (idx == PFW_REMOVED) ? ": Removed proc from flock" : "");
