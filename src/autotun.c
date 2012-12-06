@@ -216,7 +216,7 @@ int main(int argc, char *argv[])
 		log_exit_perror(FATAL_ERROR, "sigprocmask() blocking setup");
 
 	while(sec)	{
-		if(pflock_fork_data(proc_per_gw, sec->name) == NULL)	{
+		if(pflock_fork_data(proc_per_gw, sec) == NULL)	{
 			prog_name = safemalloc(64, "new progname");
 			snprintf(prog_name, 63, "autotun-%s", sec->name);
 			debug("New child process pid %d", getpid());
@@ -234,7 +234,6 @@ int main(int argc, char *argv[])
 		return run_gateway(gw);
 	}
 
-	//usleep(4200000);
 	atexit(exit_cleanup);
 
 	debug("Signal children GO");
@@ -256,5 +255,6 @@ int main(int argc, char *argv[])
 	if(pflock_get_numrun(proc_per_gw) > 0)
 		pflock_sendall(proc_per_gw, SIGTERM);
 
+	ini_free_data(ini);
 	return 0;
 }

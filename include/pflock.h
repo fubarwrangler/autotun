@@ -1,7 +1,6 @@
 #ifndef _PFLOCK_H_
 #define _PFLOCK_H_
 
-typedef void (*pflock_eventhandler)(pid_t, int);
 
 #define PF_RUNNING 1
 #define PF_EXITED  2
@@ -13,6 +12,10 @@ typedef void (*pflock_eventhandler)(pid_t, int);
 #define PFW_NONBLK  -4
 #define PFW_AGAIN   -5
 #define PFW_REMOVED -6
+
+typedef struct pflock_proc *pfproc;
+
+typedef void (*pflock_eventhandler)(pfproc, int);
 
 struct pflock_proc {
 	pid_t pid;
@@ -33,23 +36,21 @@ struct pflock {
 
 struct pflock *pflock_new(pflock_eventhandler exit, pflock_eventhandler kill);
 int pflock_get_numrun(struct pflock *pf);
-int pflock_remove(struct pflock_proc *proc);
-struct pflock_proc *
-pflock_fork_data_events(struct pflock *pf,
-						void *data,
-						pflock_eventhandler on_exit,
-						pflock_eventhandler on_kill);
-struct pflock_proc *
-pflock_fork_event(struct pflock *pf,
-				  pflock_eventhandler on_exit,
-				  pflock_eventhandler on_kill);
-struct pflock_proc *pflock_fork_data(struct pflock *pf, void *data);
-struct pflock_proc *pflock_fork(struct pflock *pf);
+pfproc pflock_fork_data_events(struct pflock *pf,
+							   void *data,
+							   pflock_eventhandler on_exit,
+							   pflock_eventhandler on_kill);
+pfproc pflock_fork_event(struct pflock *pf,
+						 pflock_eventhandler on_exit,
+						 pflock_eventhandler on_kill);
+pfproc pflock_fork_data(struct pflock *pf, void *data);
+pfproc pflock_fork(struct pflock *pf);
 int pflock_poll(struct pflock *pf);
 int pflock_wait(struct pflock *pf);
 int pflock_wait_remove(struct pflock *pf, int remove_mask);
 void pflock_sendall(struct pflock *pf, int signum);
 int pflock_destroy(struct pflock *pf);
+int pflock_remove(pfproc proc);
 
 
 #endif

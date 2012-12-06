@@ -17,7 +17,7 @@ struct pflock *pflock_new(pflock_eventhandler exit, pflock_eventhandler kill)
 {
 	struct pflock *pf = safemalloc(sizeof(struct pflock), "new pflock");
 	pf->n_procs = 0;
-	pf->flock = safemalloc(sizeof(struct pflock_proc *), "init pf->flock");
+	pf->flock = safemalloc(sizeof(pfproc), "init pf->flock");
 	pf->pgid = 0;
 	pf->evh[0] = exit;
 	pf->evh[1] = kill;
@@ -36,7 +36,7 @@ int pflock_get_numrun(struct pflock *pf)
 	return n_run;
 }
 
-int pflock_remove(struct pflock_proc *proc)
+int pflock_remove(pfproc proc)
 {
 	struct pflock *pf = proc->parent;
 	int idx;
@@ -57,7 +57,7 @@ int pflock_remove(struct pflock_proc *proc)
 		pf->flock[idx] = pf->flock[idx + 1];
 
 	saferealloc((void**)&pf->flock,
-				(pf->n_procs) * sizeof(struct pflock_proc *),
+				(pf->n_procs) * sizeof(pfproc),
 				"pflock status grow");
 
 	pf->n_procs--;
@@ -78,15 +78,14 @@ int pflock_remove(struct pflock_proc *proc)
  * @pf   the process-flock to add a child to
  * @data optional convienance pointer to help keep track of child-process
  */
-struct pflock_proc *
-pflock_fork_data_events(struct pflock *pf,
-						void *data,
-						pflock_eventhandler on_exit,
-						pflock_eventhandler on_kill)
+pfproc pflock_fork_data_events( struct pflock *pf,
+								void *data,
+								pflock_eventhandler on_exit,
+								pflock_eventhandler on_kill)
 {
 	pid_t pid;
 	int n_run;
-	struct pflock_proc *new_proc;
+	pfproc new_proc;
 
 	n_run = pflock_get_numrun(pf);
 
@@ -117,7 +116,7 @@ pflock_fork_data_events(struct pflock *pf,
 	new_proc->local_evh[1] = on_kill;
 
 	saferealloc((void**)&pf->flock,
-				(pf->n_procs + 1) * sizeof(struct pflock_proc *),
+				(pf->n_procs + 1) * sizeof(pfproc),
 				"pflock status grow");
 	pf->flock[pf->n_procs] = new_proc;
 	pf->n_procs++;
@@ -125,20 +124,19 @@ pflock_fork_data_events(struct pflock *pf,
 	return new_proc;
 }
 
-struct pflock_proc *
-pflock_fork_event(struct pflock *pf,
-				  pflock_eventhandler on_exit,
-				  pflock_eventhandler on_kill)
+pfproc pflock_fork_event(struct pflock *pf,
+						 pflock_eventhandler on_exit,
+						 pflock_eventhandler on_kill)
 {
 	return pflock_fork_data_events(pf, NULL, on_exit, on_kill);
 }
 
-struct pflock_proc *pflock_fork_data(struct pflock *pf, void *data)
+pfproc pflock_fork_data(struct pflock *pf, void *data)
 {
 	return pflock_fork_data_events(pf, data, NULL, NULL);
 }
 
-struct pflock_proc *pflock_fork(struct pflock *pf)
+pfproc pflock_fork(struct pflock *pf)
 {
 	return pflock_fork_data_events(pf, NULL, NULL, NULL);
 }
@@ -161,7 +159,7 @@ int pflock_poll(struct pflock *pf)
 int pflock_wait(struct pflock *pf)
 {
 	siginfo_t sin;
-	struct pflock_proc *p;
+	pfproc p;
 	int i;
 
 	if(pflock_get_numrun(pf) == 0)	{
@@ -196,7 +194,7 @@ int pflock_wait(struct pflock *pf)
 			if(handler == NULL)
 				handler = p->parent->evh[0];
 			if(handler != NULL)
-				handler(p->pid, sin.si_status);
+				handler(p, sin.si_status);
 			return i;
 		case CLD_KILLED:
 		case CLD_DUMPED:
@@ -206,7 +204,7 @@ int pflock_wait(struct pflock *pf)
 			if(handler == NULL)
 				handler = p->parent->evh[1];
 			if(handler != NULL)
-				handler(p->pid, sin.si_status);
+				handler(p, sin.si_status);
 			return i;
 		default:
 			log_msg("Unknown code for waitid(): %d", sin.si_code);
@@ -217,7 +215,7 @@ int pflock_wait(struct pflock *pf)
 
 int pflock_wait_remove(struct pflock *pf, int remove_mask)
 {
-	struct pflock_proc *p;
+	pfproc p;
 	int i;
 
 	switch(i = pflock_wait(pf))	{
@@ -266,13 +264,13 @@ int pflock_destroy(struct pflock *pf)
 char *prog_name = "pflock";
 int _debug=1;
 
-void handle_exit(pid_t pid, int code)
+void handle_exit(pfproc p, int code)
 {
-	log_msg("Exit happened on pid %d: code %d", pid, code);
+	log_msg("Exit happened on pid %d: code %d", p->pid, code);
 }
-void handle_kill(pid_t pid, int signal)
+void handle_kill(pfproc p, int signal)
 {
-	log_msg("Kill happened on pid %d: signal was %d", pid, signal);
+	log_msg("Kill happened on pid %d: signal was %d", p->pid, signal);
 }
 
 volatile sig_atomic_t proc_sig = 0;
@@ -329,8 +327,8 @@ int main(int argc, char *argv[])
 	log_msg("Parent proc! %d - %d", getpid(), getpgid(0));
 
 	do	{
-		struct pflock_proc *p;
-		idx = pflock_wait_remove(pf, PF_KILLED|PF_EXITED);
+		pfproc p;
+		idx = pflock_wait_remove(pf, PF_EXITED);
 		debug("pflock_wait(): returned %d%s", idx,
 			  (idx == PFW_REMOVED) ? ": Removed proc from flock" : "");
 		if(proc_sig != 0)	{
