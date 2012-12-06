@@ -136,6 +136,7 @@ int run_gateway(struct gw_host *gw)
 	else
 		log_exit(FATAL_ERROR, "Wrong signal recieved: %d", code);
 
+	sigprocmask(SIG_UNBLOCK, &ss, NULL);
 
 	select_loop(gw);
 	destroy_gw(gw);
@@ -177,9 +178,16 @@ struct pflock *proc_per_gw;
 
 void exit_cleanup(void)
 {
-	debug("atexit() register: send SIGTERM to pflock");
-	if(proc_per_gw != NULL && pflock_get_numrun(proc_per_gw) > 0)
+	int num;
+
+	if(proc_per_gw != NULL)	{
+
+		if((num = pflock_get_numrun(proc_per_gw)) == 0)
+			return;
+
+		debug("atexit(): send SIGTERM to pflock (%d running)", num);
 		pflock_sendall(proc_per_gw, SIGTERM);
+	}
 }
 
 int main(int argc, char *argv[])
@@ -187,6 +195,7 @@ int main(int argc, char *argv[])
 	struct gw_host *gw;
 	struct ini_file *ini;
 	struct ini_section *sec;
+	sigset_t bmask;
 	bool child = false;
 	int idx;
 
@@ -196,15 +205,20 @@ int main(int argc, char *argv[])
 	setup_signals();
 
 	ini = read_configfile(cfgfile, &sec);
+	free(cfgfile);
 
 	proc_per_gw = pflock_new(NULL, NULL);
 
+	sigemptyset(&bmask);
+	sigaddset(&bmask ,SIGUSR1);
+	sigaddset(&bmask ,SIGTERM);
+	if(sigprocmask(SIG_BLOCK, &bmask, NULL) < 0)
+		log_exit_perror(FATAL_ERROR, "sigprocmask() blocking setup");
 
 	while(sec)	{
-		gw = process_section_to_gw(sec);
-		if(pflock_fork_data(proc_per_gw, gw) == NULL)	{
+		if(pflock_fork_data(proc_per_gw, sec->name) == NULL)	{
 			prog_name = safemalloc(64, "new progname");
-			snprintf(prog_name, 63, "autotun-%s", gw->name);
+			snprintf(prog_name, 63, "autotun-%s", sec->name);
 			debug("New child process pid %d", getpid());
 			child = true;
 			break;
@@ -212,15 +226,15 @@ int main(int argc, char *argv[])
 		sec = sec->next;
 	}
 
-	ini_free_data(ini);
-	free(cfgfile);
 
 	if(child)	{
+		gw = process_section_to_gw(sec);
+		ini_free_data(ini);
 		connect_gateway(gw);
 		return run_gateway(gw);
 	}
 
-	usleep(1200000);
+	//usleep(4200000);
 	atexit(exit_cleanup);
 
 	debug("Signal children GO");
