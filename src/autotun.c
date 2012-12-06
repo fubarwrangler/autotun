@@ -106,7 +106,7 @@ void destroy_gw(struct gw_host *gw)
 int run_gateway(struct gw_host *gw)
 {
 	siginfo_t si;
-	struct timespec tm = {3, 0};
+	struct timespec tm = {6, 0};
 	sigset_t ss;
 	int code = 0;
 
@@ -131,8 +131,12 @@ int run_gateway(struct gw_host *gw)
 
 	if(code == SIGTERM)
 		log_exit(NO_ERROR, "Cancel signal recieved, exiting cleanly");
+	else if(code == SIGUSR1)
+		debug("Go signal recieved, entering select loop");
+	else
+		log_exit(FATAL_ERROR, "Wrong signal recieved: %d", code);
 
-	debug("Go signal recieved, entering select loop");
+
 	select_loop(gw);
 	destroy_gw(gw);
 	ssh_finalize();
@@ -198,7 +202,6 @@ int main(int argc, char *argv[])
 
 	while(sec)	{
 		gw = process_section_to_gw(sec);
-		connect_gateway(gw);
 		if(pflock_fork_data(proc_per_gw, gw) == NULL)	{
 			prog_name = safemalloc(64, "new progname");
 			snprintf(prog_name, 63, "autotun-%s", gw->name);
@@ -213,10 +216,14 @@ int main(int argc, char *argv[])
 	free(cfgfile);
 
 	if(child)	{
+		connect_gateway(gw);
 		return run_gateway(gw);
 	}
 
+	usleep(1200000);
 	atexit(exit_cleanup);
+
+	debug("Signal children GO");
 	pflock_sendall(proc_per_gw, SIGUSR1);
 
 	do	{

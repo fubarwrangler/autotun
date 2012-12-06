@@ -20,8 +20,6 @@ int connect_ssh_session(ssh_session *session)
 		default:
 			log_exit(CONNECTION_RETRY, "Unknown error validating server");
 	}
-
-	return 0;
 }
 
 void authenticate_ssh_session(ssh_session session)
@@ -29,7 +27,7 @@ void authenticate_ssh_session(ssh_session session)
 	/* This will only work if you are running ssh-agent */
 	switch(ssh_userauth_autopubkey(session, NULL))	{
 		case SSH_AUTH_SUCCESS:
-			return 0;
+			break;
 		case SSH_AUTH_ERROR:
 			log_exit(CONNECTION_ERROR, "Error occured authenticating: %s",
 					 ssh_get_error(session));
