@@ -42,8 +42,8 @@ get_cs_for_channel(struct gw_host *gw, ssh_channel ch)
  * @gw	gateway struct
  * @listenfd	The listening file-descriptor with a pending connection
 */
-int new_connection(struct gw_host *gw,
-				   int listenfd)
+static int new_connection(struct gw_host *gw,
+						  int listenfd)
 {
 	struct static_port_map *pm;
 	struct chan_sock *cs;
@@ -96,7 +96,7 @@ static int update_channels(struct gw_host *gw,
 	return 1;
 }
 
-#define CHAN_BUF_SIZE 2048
+#define CHAN_BUF_SIZE 4096
 
 int select_loop(struct gw_host *gw)
 {
