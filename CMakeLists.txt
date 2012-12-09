@@ -20,6 +20,14 @@ MARK_AS_ADVANCED(LIBSSH_LIBRARIES LIBSSH_INCLUDE_DIRS)
 ADD_SUBDIRECTORY(src)
 
 SET(WITH_STATIC True)
+
+IF( NOT EXISTS "${CMAKE_SOURCE_DIR}/iniread/.git")
+    MESSAGE( WARNING "Not found, updating submodules")
+    EXECUTE_PROCESS(COMMAND git submodule update --init
+                    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+                   )
+ENDIF()
+
 ADD_CUSTOM_COMMAND( TARGET  iniread
                     PRE_BUILD
                     COMMAND git submodule init
