@@ -20,9 +20,10 @@ MARK_AS_ADVANCED(LIBSSH_LIBRARIES LIBSSH_INCLUDE_DIRS)
 ADD_SUBDIRECTORY(src)
 
 SET(WITH_STATIC True)
-ADD_CUSTOM_COMMAND( COMMAND git submodule init
-                    COMMAND git submodule update
+ADD_CUSTOM_COMMAND( TARGET  iniread
                     PRE_BUILD
+                    COMMAND git submodule init
+                    COMMAND git submodule update
                   )
 
 ADD_SUBDIRECTORY(iniread)
