@@ -1,0 +1,3 @@
+[submodule "iniread"]
+	path = iniread
+	url = https://github.com/fubarwrangler/iniread.git
