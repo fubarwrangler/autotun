@@ -1,0 +1,21 @@
+Installation Instructions
+-------------------------
+
+Just check out the repo and optionally initilize the iniread-submodule:
+
+git submodule update --init
+
+(cmake should do this for you if not yet)
+
+Optionally create a build-directory and cd into it, then run cmake:
+
+mkdir build
+cd build
+cmake ../
+
+Next just do a make autotun or a make install and you should be fine.
+
+Requirements
+------------
+
+You need cmake >= 2.8 to build, as well as libssh >= 0.5.2 (Fedora 17 has both)
