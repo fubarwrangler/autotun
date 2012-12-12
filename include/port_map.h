@@ -11,12 +11,22 @@ struct chan_sock {
 	struct static_port_map *parent;
 };
 
+struct dynamic_chan_sock {
+	ssh_channel channel;
+	int sock_fd;
+	struct static_port_map *parent;
+	int socks_state;
+};
+
 struct static_port_map {
 	int listen_fd;
 	uint32_t local_port;
 	char *remote_host;
 	uint32_t remote_port;
-	struct chan_sock **ch;
+	union {
+		struct chan_sock **cs;
+		struct dynamic_chan_sock **dyn;
+	} ch;
 	int n_channels;
 	struct gw_host *parent;
 };

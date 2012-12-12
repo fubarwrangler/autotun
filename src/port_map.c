@@ -42,7 +42,7 @@ void add_map_to_gw(struct gw_host *gw,
 	spm->local_port = local_port;
 	spm->remote_host = safestrdup(host, "spm strdup hostname");
 	spm->remote_port = remote_port;
-	spm->ch = safemalloc(sizeof(struct chan_sock *), "spm->ch");
+	spm->ch.cs = safemalloc(sizeof(struct chan_sock *), "spm->ch");
 
 	spm->listen_fd = create_listen_socket(local_port, "localhost");
 	add_fdmap(gw->listen_fdmap, spm->listen_fd, spm);
@@ -78,7 +78,7 @@ add_channel_to_map(struct static_port_map *pm,
 	cs->channel = channel;
 	cs->sock_fd = sock_fd;
 	add_fdmap(pm->parent->chan_sock_fdmap, sock_fd, cs);
-	pm->ch[pm->n_channels] = cs;
+	pm->ch.cs[pm->n_channels] = cs;
 	pm->n_channels++;
 	cs->parent = pm;
 	return cs;
@@ -107,7 +107,7 @@ void remove_channel_from_map(struct chan_sock *cs)
 		log_exit(FATAL_ERROR, "Corrupt chan_sock parent %p->parent NULL", cs);
 
 	for(i = 0; i < pm->n_channels; i++)	{
-		if(pm->ch[i] == cs)	{
+		if(pm->ch.cs[i] == cs)	{
 			if( ssh_channel_is_open(cs->channel) &&
 				ssh_channel_close(cs->channel) != SSH_OK)
 					log_msg("Error on channel close for %s", pm->parent->name);
@@ -118,7 +118,7 @@ void remove_channel_from_map(struct chan_sock *cs)
 
 	debug("Destroy channel %p, closing fd=%d", cs->channel, cs->sock_fd);
 	for(; i < pm->n_channels - 1; i++)
-		pm->ch[i] = pm->ch[i + 1];
+		pm->ch.cs[i] = pm->ch.cs[i + 1];
 
 	saferealloc((void **)&pm->ch, pm->n_channels * sizeof(cs),
 				"pm->channel realloc");
@@ -145,13 +145,13 @@ static void free_map(struct static_port_map *pm)
 	debug("Freeing map %p (listen on %d) %d channels", pm, pm->local_port, pm->n_channels);
 
 	while(pm->n_channels)
-		remove_channel_from_map(pm->ch[0]);
+		remove_channel_from_map(pm->ch.cs[0]);
 
 	remove_fdmap(pm->parent->listen_fdmap, pm->listen_fd);
 	if(close(pm->listen_fd) < 0)
 		log_msg("Error closing listening fd=%d: %s", pm->listen_fd,
 				strerror(errno));
-	free(pm->ch);
+	free(pm->ch.cs);
 	free(pm->remote_host);
 	free(pm);
 }

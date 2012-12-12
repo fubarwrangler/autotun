@@ -126,7 +126,7 @@ int main(int argc, char *argv[])
 
 	if(pflock_get_numrun(proc_per_gw) > 0)
 		pflock_sendall(proc_per_gw, SIGTERM);
-
+	pflock_destroy(proc_per_gw);
 	ini_free_data(ini);
 	return 0;
 }

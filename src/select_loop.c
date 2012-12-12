@@ -29,8 +29,8 @@ get_cs_for_channel(struct gw_host *gw, ssh_channel ch)
 {
 	for(int i = 0; i < gw->n_maps; i++)	{
 		for(int j = 0; j < gw->pm[i]->n_channels; j++)	{
-			if(ch == gw->pm[i]->ch[j]->channel)
-				return gw->pm[i]->ch[j];
+			if(ch == gw->pm[i]->ch.cs[j]->channel)
+				return gw->pm[i]->ch.cs[j];
 		}
 	}
 	return NULL;
@@ -88,7 +88,7 @@ static int update_channels(struct gw_host *gw,
 
 	for(i = 0, k = 0; i < gw->n_maps; i++)
 		for(j = 0; j < gw->pm[i]->n_channels; j++)
-			(*chs)[k++] = gw->pm[i]->ch[j]->channel;
+			(*chs)[k++] = gw->pm[i]->ch.cs[j]->channel;
 
 	(*chs)[new_n] = NULL;
 	*nchan = new_n;
@@ -115,9 +115,9 @@ int select_loop(struct gw_host *gw)
 		if(gw->pm[i]->listen_fd > maxfd)
 			maxfd = gw->pm[i]->listen_fd;
 		for(j = 0; j < gw->pm[i]->n_channels; j++)	{
-			if(gw->pm[i]->ch[j]->sock_fd > maxfd)
-				maxfd = gw->pm[i]->ch[j]->sock_fd;
-			FD_SET(gw->pm[i]->ch[j]->sock_fd, &master);
+			if(gw->pm[i]->ch.cs[j]->sock_fd > maxfd)
+				maxfd = gw->pm[i]->ch.cs[j]->sock_fd;
+			FD_SET(gw->pm[i]->ch.cs[j]->sock_fd, &master);
 		}
 		FD_SET(gw->pm[i]->listen_fd, &listen_set);
 	}
