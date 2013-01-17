@@ -112,7 +112,7 @@ static void parse_host_line(char *str, char **host, uint32_t *port)
  */
 static void create_gw_session_config(struct ini_section *sec, struct gw_host *gw)
 {
-	int ssh_verbosity = (_verbose == 0) ? SSH_LOG_NOLOG : SSH_LOG_FUNCTIONS;
+	int ssh_verbosity = (_verbose == 0) ? SSH_LOG_NOLOG : SSH_LOG_PROTOCOL;
 	int err, off = 0, on = 1;
 	char *str;
 	bool compression;

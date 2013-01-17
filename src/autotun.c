@@ -121,5 +121,6 @@ int run_gateway(struct gw_host *gw)
 	select_loop(gw);
 	destroy_gw(gw);
 	ssh_finalize();
+	free(prog_name);
 	return 0;
 }

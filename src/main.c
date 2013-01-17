@@ -90,6 +90,7 @@ int main(int argc, char *argv[])
 
 	while(sec)	{
 		if(pflock_fork_data(proc_per_gw, sec) == NULL)	{
+			pflock_destroy(proc_per_gw);
 			prog_name = safemalloc(64, "new progname");
 			snprintf(prog_name, 63, "autotun-%s", sec->name);
 			debug("New child process pid %d", getpid());
@@ -106,7 +107,6 @@ int main(int argc, char *argv[])
 	}
 
 	setup_signals_parent();
-	atexit(exit_cleanup);
 
 	debug("Signal children GO");
 	pflock_sendall(proc_per_gw, SIGUSR1);
@@ -128,6 +128,7 @@ int main(int argc, char *argv[])
 		pflock_sendall(proc_per_gw, SIGTERM);
 
 	ini_free_data(ini);
+	pflock_destroy(proc_per_gw);
 	return 0;
 }
 
