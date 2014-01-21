@@ -96,7 +96,7 @@ static int update_channels(struct gw_host *gw,
 	return 1;
 }
 
-#define CHAN_BUF_SIZE 4096
+#define CHAN_BUF_SIZE 4096 * 4
 
 int select_loop(struct gw_host *gw)
 {
@@ -251,7 +251,14 @@ int select_loop(struct gw_host *gw)
 				}
 			} else if (n_read == 0)	{
 				/* close socket */
-				log_exit(FATAL_ERROR, "BUG!: Zero bytes read from channel %p", ch);
+
+				log_msg("Zero bytes read from channel %p, removing", ch);
+				saferealloc((void **)&channels_to_remove,
+							(n_chan_rm + 1) * sizeof(struct chan_sock *),
+							"removed channels");
+
+				channels_to_remove[n_chan_rm] = cs;
+				n_chan_rm += 1;
 			} else {
 				/* error case */
 				log_msg("Error with ssh_channel_read on channel %p", ch);

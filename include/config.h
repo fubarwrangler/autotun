@@ -1,7 +1,7 @@
 #ifndef _CONFIG_SSH_H__
 #define _CONFIG_SSH_H__
 
-#include <iniread.h>
+#include "iniread.h"
 
 #include "autotun.h"
 
