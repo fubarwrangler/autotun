@@ -44,7 +44,7 @@ void add_map_to_gw(struct gw_host *gw,
 	spm->remote_port = remote_port;
 	spm->ch = safemalloc(sizeof(struct chan_sock *), "spm->ch");
 
-	spm->listen_fd = create_listen_socket(local_port, "localhost");
+	spm->listen_fd = create_listen_socket(local_port, gw->local ? "localhost" : "*");
 	add_fdmap(gw->listen_fdmap, spm->listen_fd, spm);
 	spm->parent = gw;
 	spm->n_channels = 0;

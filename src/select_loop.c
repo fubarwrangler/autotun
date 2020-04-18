@@ -188,8 +188,8 @@ int select_loop(struct gw_host *gw)
 
 			n_read = recv(cs->sock_fd, buf, sizeof(buf), 0);
 
-			debug("Read %d bytes from user socket fd=%d write to channel %p",
-				  n_read, i, cs->channel);
+			debug("Write %d bytes to channel %p (read from user socket fd=%d)",
+				  n_read, cs->channel, i);
 
 			if(n_read <= 0)	{
 			/* Tear down the channel on zero-read or error if user disconnected */

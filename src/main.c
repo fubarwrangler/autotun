@@ -99,8 +99,8 @@ int main(int argc, char *argv[])
 			gw = process_section_to_gw(sec);
 			ini_free_data(ini);
 
-			connect_ssh_session(&gw->session);
-			authenticate_ssh_session(gw->session);
+			connect_ssh_session(gw->session);
+			authenticate_ssh_session(gw->session, gw->auth);
 			return run_gateway(gw);
 		}
 		sec = sec->next;

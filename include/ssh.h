@@ -5,7 +5,7 @@
 #include "autotun.h"
 
 void connect_ssh_session();
-void authenticate_ssh_session(ssh_session session);
+void authenticate_ssh_session(ssh_session session, const char *key);
 void end_ssh_session(ssh_session session);
 
 

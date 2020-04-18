@@ -16,9 +16,12 @@ enum session_stat_vars {
 	ERROR,
 };
 
+
 struct gw_host {
 	char *name;
 	ssh_session session;
+	char *auth;
+	int local;
 	int n_maps;
 	struct fd_map *chan_sock_fdmap;
 	struct static_port_map **pm;

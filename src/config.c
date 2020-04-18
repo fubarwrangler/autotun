@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <ctype.h>
+#include <strings.h>
 
 #include "autotun.h"
 #include "config.h"
@@ -115,7 +116,7 @@ static void create_gw_session_config(struct ini_section *sec, struct gw_host *gw
 	int ssh_verbosity = (_verbose == 0) ? SSH_LOG_NOLOG : SSH_LOG_PROTOCOL;
 	int err, off = 0, on = 1;
 	char *str;
-	bool compression;
+	bool compression = false;
 	int c_level;
 
 	if((gw->session = ssh_new()) == NULL)
@@ -124,6 +125,8 @@ static void create_gw_session_config(struct ini_section *sec, struct gw_host *gw
 	ssh_options_set(gw->session, SSH_OPTIONS_HOST, gw->name);
 	ssh_options_set(gw->session, SSH_OPTIONS_LOG_VERBOSITY, &ssh_verbosity);
 	ssh_options_set(gw->session, SSH_OPTIONS_SSH1, &off);
+	ssh_options_set(gw->session, SSH_OPTIONS_PROCESS_CONFIG, &compression);
+// 	ssh_options_set(gw->session, SSH_OPTIONS_SSH_DIR, ".sshold/");
 
 	/* Zero / false is default */
 	compression = ini_get_section_bool(sec, "compression", &err);
@@ -133,7 +136,7 @@ static void create_gw_session_config(struct ini_section *sec, struct gw_host *gw
 			c_level = 5;
 		debug("Compression enabled, level %d", c_level);
 
-		ssh_options_set(gw->session, SSH_OPTIONS_COMPRESSION, "on");
+		ssh_options_set(gw->session, SSH_OPTIONS_COMPRESSION, "yes");
 		ssh_options_set(gw->session, SSH_OPTIONS_COMPRESSION_LEVEL, &c_level);
 	} else if(c_level != 0 && !compression)	{
 		log_exit(CONFIG_ERROR, "Error: cannot set compression-level if compression is not set");
@@ -148,6 +151,15 @@ static void create_gw_session_config(struct ini_section *sec, struct gw_host *gw
 
 	if((str = ini_get_section_value(sec, "proxy_command")) != NULL)
 		ssh_options_set(gw->session, SSH_OPTIONS_PROXYCOMMAND, str);
+
+	if((str = ini_get_section_value(sec, "auth_key")) != NULL)
+		gw->auth = safestrdup(str, "auth key");
+	else
+		gw->auth = NULL;
+
+	gw->local = 1;
+	if((str = ini_get_section_value(sec, "bind_local")) != NULL)
+		gw->local = strcasecmp(str, "false");
 }
 
 /**

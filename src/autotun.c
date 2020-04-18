@@ -56,12 +56,13 @@ void setup_signals_parent(void)
 
 struct gw_host *create_gw(const char *hostname)
 {
-	struct gw_host *gw = safemalloc(sizeof(struct gw_host), "gw_host struct");
+	struct gw_host *gw = safemalloc(sizeof(struct gw_host) + 2, "gw_host struct");
 	gw->name = safestrdup(hostname, "gw_host strdup");
 	gw->n_maps = 0;
 	gw->pm = safemalloc(sizeof(struct static_port_map *), "gw_host pm array");
 	gw->listen_fdmap = new_fdmap();
 	gw->chan_sock_fdmap = new_fdmap();
+	gw->auth = NULL;
 	return gw;
 }
 
